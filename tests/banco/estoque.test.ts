@@ -241,4 +241,26 @@ describe.skipIf(!URL)("estoque e pedidos no banco", () => {
     expect(r.rows.at(-1)).toEqual({ acao: "update", usuario_id: dono, status: "separado" });
     expect(r.rows.every((x) => x.usuario_id)).toBe(true);
   });
+
+  it("loja própria: pedido mexe no estoque mas fica fora do faturamento e do lucro; pedidos antigos não mudam", async () => {
+    await lote(c, dono, [{ produto_id: banana, quantidade: 20 }]);
+    const antigo = await salvarPedido(c, dono, cliente, [{ produto_id: banana, quantidade: 2 }], { data: "2026-09-01" });
+    await c.query(`update public.clientes set loja_propria = true where id = $1`, [cliente]);
+    const proprio = await salvarPedido(c, dono, cliente, [{ produto_id: banana, quantidade: 3 }], { data: "2026-09-01" });
+    await status(c, antigo, "entregue", dono);
+    await status(c, proprio, "entregue", dono);
+
+    const marcas = await c.query(`select id, a_preco_de_custo from public.pedidos order by numero`);
+    expect(marcas.rows.map((r) => r.a_preco_de_custo)).toEqual([false, true]);
+    expect((await saldo(c, banana)).fisico).toBe(15);
+
+    const vendas = await c.query(`select array_agg(id) as ids from public.v_vendas`);
+    expect(vendas.rows[0].ids).toEqual([antigo]);
+    const dia = await c.query(`select caixas from public.v_resumo_diario where data = '2026-09-01'`);
+    expect(Number(dia.rows[0].caixas)).toBe(2);
+
+    // desmarcar o cliente não puxa o pedido já feito de volta para as vendas
+    await c.query(`update public.clientes set loja_propria = false where id = $1`, [cliente]);
+    expect((await c.query(`select count(*)::int as n from public.v_vendas`)).rows[0].n).toBe(1);
+  });
 });

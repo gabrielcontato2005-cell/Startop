@@ -122,3 +122,14 @@ export async function importarClientes(clientes: ClienteImportado[], origem: "cs
   revalidatePath("/clientes");
   return { importados: novos.length, duplicados: duplicados.length, erros: [] };
 }
+
+/** Liga ou desliga a loja própria: pedidos a preço de custo, fora do faturamento e do lucro. Só o dono. */
+export async function marcarLojaPropria(_: EstadoAcao, dados: FormData): Promise<EstadoAcao> {
+  const u = await exigirDono();
+  const id = texto(dados, "id");
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return { erro: "Cliente inválido." };
+  await consultar(`update clientes set loja_propria = $1, atualizado_por = $2 where id = $3`, [dados.get("ligar") === "sim", u.id, id]);
+  revalidatePath(`/clientes/${id}`);
+  revalidatePath("/clientes");
+  return { ok: dados.get("ligar") === "sim" ? "Marcada como loja própria." : "Voltou a ser cliente comum." };
+}

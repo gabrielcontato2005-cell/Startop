@@ -7,7 +7,7 @@ import { Aviso, Botao, Cartao, Secao, classeCampo } from "@/components/ui";
 import type { ClienteResumo, Config, ProdutoCatalogo } from "@/lib/dados";
 import { formatarReais, lerReais } from "@/lib/regras/dinheiro";
 import { formatarData } from "@/lib/regras/horario";
-import { calcularPedido, type FormaPagamento, type RegraDesconto, type TipoPedido } from "@/lib/regras/pedido";
+import { calcularPedido, precoDeCusto, type FormaPagamento, type RegraDesconto, type TipoPedido } from "@/lib/regras/pedido";
 import { formatarWhatsapp } from "@/lib/regras/telefone";
 import { habitosDoCliente, salvarPedido } from "./acoes";
 
@@ -30,6 +30,8 @@ type Props = {
   produtos: ProdutoCatalogo[];
   regras: RegraDesconto[];
   config: Config;
+  /** custo atual por produto: só chega para o dono, para o pedido da loja própria */
+  custos?: Record<string, number>;
   dono: boolean;
   dataPadrao: string;
   clienteInicial?: string;
@@ -38,7 +40,7 @@ type Props = {
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export default function FormPedido({ clientes, produtos, regras, config, dono, dataPadrao, clienteInicial, inicial }: Props) {
+export default function FormPedido({ clientes, produtos, regras, config, custos, dono, dataPadrao, clienteInicial, inicial }: Props) {
   const router = useRouter();
   const [clienteId, setClienteId] = useState(inicial?.cliente_id ?? clienteInicial ?? "");
   const [busca, setBusca] = useState("");
@@ -80,18 +82,23 @@ export default function FormPedido({ clientes, produtos, regras, config, dono, d
 
   const itens = Object.entries(qtd).filter(([, q]) => q > 0).map(([produto_id, quantidade]) => ({ produto_id, quantidade }));
   const taxaDigitada = taxaTexto.trim() === "" ? null : lerReais(taxaTexto);
+  const aCusto = useMemo(
+    () => (cliente?.loja_propria && custos ? precoDeCusto(mapaProdutos, new Map(Object.entries(custos))) : null),
+    [cliente?.loja_propria, custos, mapaProdutos],
+  );
+  const precos = aCusto?.produtos ?? mapaProdutos;
   const calc = calcularPedido(
     {
       itens,
       tipo,
       forma_pagamento: forma,
       distancia_km: cliente?.distancia_km ?? null,
-      pedido_minimo_manual: cliente?.pedido_minimo_manual,
+      pedido_minimo_manual: aCusto ? aCusto.pedido_minimo_manual : cliente?.pedido_minimo_manual,
       taxa_entrega_centavos: taxaDigitada,
       hora_agendada: hora || null,
     },
-    mapaProdutos,
-    regras,
+    precos,
+    aCusto?.regras ?? regras,
     config,
   );
 
@@ -196,8 +203,9 @@ export default function FormPedido({ clientes, produtos, regras, config, dono, d
           <div className="truncate text-lg font-bold">{cliente.nome_loja}</div>
           <div className="text-sm text-slate-500">
             {cliente.distancia_km != null ? `${String(cliente.distancia_km).replace(".", ",")} km` : "distância não cadastrada"}
-            {calc.pedido_minimo != null && ` · mínimo ${calc.pedido_minimo} cx`}
+            {calc.pedido_minimo != null && !aCusto && ` · mínimo ${calc.pedido_minimo} cx`}
           </div>
+          {aCusto && <div className="mt-1 text-sm font-semibold text-roxo">Loja própria: preço de custo, fora do faturamento e do lucro</div>}
         </div>
         {!inicial && (
           <button type="button" onClick={() => (setClienteId(""), setHabitos(null))} className="shrink-0 text-sm font-medium text-roxo">
@@ -271,7 +279,7 @@ export default function FormPedido({ clientes, produtos, regras, config, dono, d
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{p.sabor}</div>
                 <div className={`text-xs ${livre - q < 0 ? "font-semibold text-red-700" : "text-slate-500"}`}>
-                  {formatarReais(p.preco_centavos)} · {livre} livre{livre === 1 ? "" : "s"}
+                  {formatarReais(precos.get(p.id)?.preco_centavos ?? p.preco_centavos)} · {livre} livre{livre === 1 ? "" : "s"}
                 </div>
               </div>
               <button type="button" aria-label={`Menos ${p.sabor}`} onClick={() => mudar(p.id, -1)} disabled={q === 0}
@@ -386,7 +394,7 @@ export default function FormPedido({ clientes, produtos, regras, config, dono, d
       </Cartao>
 
       <div className="space-y-2">
-        {tipo === "entrega" && cliente.distancia_km == null && cliente.pedido_minimo_manual == null && (
+        {tipo === "entrega" && !aCusto && cliente.distancia_km == null && cliente.pedido_minimo_manual == null && (
           <Aviso tipo="info">Cliente sem distância cadastrada: não dá para conferir o pedido mínimo nem sugerir a taxa.</Aviso>
         )}
         {calc.fora_do_horario && <Aviso tipo="erro">Horário fora do funcionamento ({config.horario_abertura} às {config.horario_fechamento}).</Aviso>}

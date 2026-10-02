@@ -84,12 +84,20 @@ export type ClienteResumo = {
   cidade: string | null;
   distancia_km: number | null;
   pedido_minimo_manual: number | null;
+  loja_propria: boolean;
 };
 
-export async function lerClientesParaPedido(): Promise<ClienteResumo[]> {
+/** Clientes da tela de pedido. A loja própria (pedido a preço de custo) só aparece para o dono. */
+export async function lerClientesParaPedido(dono: boolean): Promise<ClienteResumo[]> {
   return consultar<ClienteResumo>(`
-    select id, nome_loja, responsavel, whatsapp, bairro, cidade, distancia_km, pedido_minimo_manual
-      from clientes where ativo order by lower(nome_loja)`);
+    select id, nome_loja, responsavel, whatsapp, bairro, cidade, distancia_km, pedido_minimo_manual, loja_propria
+      from clientes where ativo and ($1 or not loja_propria) order by lower(nome_loja)`, [dono]);
+}
+
+/** Custo atual de cada produto, para o pedido da loja própria. Só para o dono. */
+export async function lerCustos(): Promise<Record<string, number>> {
+  const r = await consultar<{ id: string; custo: number }>(`select id, custo_unitario_centavos as custo from v_produtos`);
+  return Object.fromEntries(r.map((c) => [c.id, c.custo]));
 }
 
 export const STATUS: Record<string, { nome: string; cor: string }> = {

@@ -5,7 +5,7 @@ import type { EstadoAcao } from "@/components/formulario";
 import { consultar, consultarUm, ehEstoqueInsuficiente, mensagemDoBanco } from "@/lib/db";
 import { ehUuid, lerCatalogo, lerConfig, lerRegras } from "@/lib/dados";
 import { lerReais } from "@/lib/regras/dinheiro";
-import { calcularPedido, type FormaPagamento, type TipoPedido } from "@/lib/regras/pedido";
+import { calcularPedido, precoDeCusto, type FormaPagamento, type RegraDesconto, type TipoPedido } from "@/lib/regras/pedido";
 import { exigirEquipe, exigirUsuario } from "@/lib/sessao";
 
 export type EnvioPedido = {
@@ -49,8 +49,8 @@ export async function salvarPedido(envio: EnvioPedido): Promise<RespostaPedido> 
   }
 
   const [cliente, catalogo, regras, cfg] = await Promise.all([
-    consultarUm<{ distancia_km: number | null; pedido_minimo_manual: number | null; ativo: boolean }>(
-      `select distancia_km, pedido_minimo_manual, ativo from clientes where id = $1`,
+    consultarUm<{ distancia_km: number | null; pedido_minimo_manual: number | null; ativo: boolean; loja_propria: boolean }>(
+      `select distancia_km, pedido_minimo_manual, ativo, loja_propria from clientes where id = $1`,
       [envio.cliente_id],
     ),
     lerCatalogo(false),
@@ -59,9 +59,20 @@ export async function salvarPedido(envio: EnvioPedido): Promise<RespostaPedido> 
   ]);
   if (!cliente) return { ok: false, erro: "Cliente não encontrado." };
 
-  const produtos = new Map(catalogo.map((p) => [p.id, p]));
+  if (cliente.loja_propria && !dono) return { ok: false, erro: "Pedido da loja própria só o dono faz." };
+
+  let produtos = new Map(catalogo.map((p) => [p.id, p]));
   if (envio.itens.some((i) => i.quantidade > 0 && !produtos.get(i.produto_id)?.ativo)) {
     return { ok: false, erro: "Algum produto saiu de linha. Recarregue a página." };
+  }
+  let regrasUsadas: RegraDesconto[] = regras;
+  let minimoManual = cliente.pedido_minimo_manual;
+  if (cliente.loja_propria) {
+    const custos = await consultar<{ id: string; custo: number }>(`select id, custo_unitario_centavos as custo from v_produtos`);
+    const aCusto = precoDeCusto(produtos, new Map(custos.map((c) => [c.id, Number(c.custo)])));
+    produtos = aCusto.produtos;
+    regrasUsadas = aCusto.regras;
+    minimoManual = aCusto.pedido_minimo_manual;
   }
 
   const calc = calcularPedido(
@@ -70,12 +81,12 @@ export async function salvarPedido(envio: EnvioPedido): Promise<RespostaPedido> 
       tipo: envio.tipo,
       forma_pagamento: envio.forma_pagamento,
       distancia_km: cliente.distancia_km,
-      pedido_minimo_manual: cliente.pedido_minimo_manual,
+      pedido_minimo_manual: minimoManual,
       taxa_entrega_centavos: envio.taxa_entrega_centavos,
       hora_agendada: envio.hora_agendada,
     },
     produtos,
-    regras,
+    regrasUsadas,
     cfg,
   );
 
@@ -137,8 +148,8 @@ export async function habitosDoCliente(clienteId: string) {
       [clienteId],
     ),
     consultar<{ produto_id: string }>(
-      `select i.produto_id from itens_pedido i join v_vendas v on v.id = i.pedido_id
-        where v.cliente_id = $1 group by 1 order by sum(i.quantidade) desc limit 6`,
+      `select i.produto_id from itens_pedido i join pedidos v on v.id = i.pedido_id
+        where v.cliente_id = $1 and v.status not in ('novo', 'cancelado') group by 1 order by sum(i.quantidade) desc limit 6`,
       [clienteId],
     ),
   ]);

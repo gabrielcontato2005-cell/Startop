@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { Pagina } from "@/components/ui";
-import { ehUuid, lerCatalogo, lerClientesParaPedido, lerConfig, lerRegras } from "@/lib/dados";
+import { ehUuid, lerCatalogo, lerClientesParaPedido, lerConfig, lerCustos, lerRegras } from "@/lib/dados";
 import { consultar, consultarUm } from "@/lib/db";
 import { exigirEquipe } from "@/lib/sessao";
 import FormPedido, { type PedidoInicial } from "../../form-pedido";
@@ -20,12 +20,13 @@ export default async function EditarPedido({ params }: PageProps<"/pedidos/[id]/
   if (!p) notFound();
   if (!["novo", "confirmado", "separado"].includes(p.status)) redirect(`/pedidos/${id}`);
 
-  const [itens, clientes, produtos, regras, config] = await Promise.all([
+  const [itens, clientes, produtos, regras, config, custos] = await Promise.all([
     consultar<{ produto_id: string; quantidade: number }>(`select produto_id, quantidade from itens_pedido where pedido_id = $1`, [id]),
-    lerClientesParaPedido(),
+    lerClientesParaPedido(u.perfil === "dono"),
     lerCatalogo(),
     lerRegras(),
     lerConfig(),
+    u.perfil === "dono" ? lerCustos() : undefined,
   ]);
 
   return (
@@ -35,6 +36,7 @@ export default async function EditarPedido({ params }: PageProps<"/pedidos/[id]/
         produtos={produtos}
         regras={regras}
         config={config}
+        custos={custos}
         dono={u.perfil === "dono"}
         dataPadrao={p.data_agendada}
         inicial={{ ...p, itens, liberado: !!p.liberado_abaixo_minimo_por }}

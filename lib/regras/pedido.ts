@@ -174,3 +174,15 @@ export function custoMedio(fisico: number, custoAtual: number, quantidade: numbe
   if (fisico <= 0) return custoLote;
   return Math.round((fisico * custoAtual + quantidade * custoLote) / (fisico + quantidade));
 }
+
+/**
+ * Loja própria: cada caixa sai pelo custo atual, sem desconto de volume e sem pedido mínimo.
+ * Devolve o catálogo e as regras para passar ao calcularPedido.
+ */
+export function precoDeCusto<P extends ProdutoPreco>(
+  produtos: Map<string, P>,
+  custos: Map<string, number>,
+): { produtos: Map<string, P>; regras: RegraDesconto[]; pedido_minimo_manual: number } {
+  const aCusto = new Map([...produtos].map(([id, p]) => [id, { ...p, preco_centavos: custos.get(id) ?? 0 }]));
+  return { produtos: aCusto, regras: [], pedido_minimo_manual: 0 };
+}

@@ -20,7 +20,7 @@ type Pedido = {
   forma_pagamento: string; subtotal_centavos: number; desconto_centavos: number; taxa_entrega_sugerida_centavos: number;
   taxa_entrega_centavos: number; acrescimo_cartao_centavos: number; total_centavos: number; pago_centavos: number;
   custo_total_centavos: number; lucro_centavos: number; total_caixas: number; distancia_km_usada: number | null;
-  pedido_minimo_usado: number | null; liberado_por: string | null; observacoes: string | null; motivo_cancelamento: string | null;
+  pedido_minimo_usado: number | null; a_preco_de_custo: boolean; liberado_por: string | null; observacoes: string | null; motivo_cancelamento: string | null;
   criado_em: string; criado_por: string | null;
 };
 
@@ -112,6 +112,7 @@ export default async function DetalhePedido({ params }: PageProps<"/pedidos/[id]
       <div className="mb-3 flex flex-wrap gap-2">
         <Etiqueta cor={STATUS[p.status].cor}>{STATUS[p.status].nome}</Etiqueta>
         {p.status !== "cancelado" && <Etiqueta cor={PAGAMENTO[p.status_pagamento].cor}>{PAGAMENTO[p.status_pagamento].nome}</Etiqueta>}
+        {p.a_preco_de_custo && <Etiqueta cor="bg-roxo/15 text-roxo">Loja própria · preço de custo</Etiqueta>}
         {p.liberado_por && <Etiqueta cor="bg-amber-100 text-amber-800">Abaixo do mínimo, liberado por {p.liberado_por}</Etiqueta>}
       </div>
 
@@ -134,14 +135,19 @@ export default async function DetalhePedido({ params }: PageProps<"/pedidos/[id]
           <BotaoAvancar id={id} status={proximo!} rotulo={ROTULO_AVANCAR[proximo!]} grande forcavel={dono} />
         </div>
       )}
-      <a
-        href={linkWhatsapp(p.whatsapp, resumo)}
-        target="_blank"
-        rel="noreferrer"
-        className="mb-5 flex min-h-12 items-center justify-center rounded-xl bg-[#25D366] font-semibold text-white"
-      >
-        Enviar resumo no WhatsApp
-      </a>
+      <div className="mb-5 grid grid-cols-2 gap-3">
+        <a
+          href={linkWhatsapp(p.whatsapp, resumo)}
+          target="_blank"
+          rel="noreferrer"
+          className="flex min-h-12 items-center justify-center rounded-xl bg-[#25D366] px-2 text-center font-semibold text-white"
+        >
+          Resumo no WhatsApp
+        </a>
+        <BotaoLink href={`/nota/${id}`} grande estilo="secundario">
+          Imprimir nota
+        </BotaoLink>
+      </div>
 
       <Secao titulo={`Itens · ${p.total_caixas} caixas`}>
         <Cartao className="space-y-1 text-sm tabular-nums">
@@ -164,7 +170,7 @@ export default async function DetalhePedido({ params }: PageProps<"/pedidos/[id]
             )}
             {p.acrescimo_cartao_centavos > 0 && <div className="flex justify-between"><span>Acréscimo do cartão</span><span>{formatarReais(p.acrescimo_cartao_centavos)}</span></div>}
             <div className="flex justify-between text-base font-bold"><span>Total ({nomeFormaPagamento(p.forma_pagamento)})</span><span>{formatarReais(p.total_centavos)}</span></div>
-            {dono && vendido && (
+            {dono && vendido && !p.a_preco_de_custo && (
               <div className="flex justify-between text-green-700">
                 <span>Lucro (custo {formatarReais(p.custo_total_centavos)})</span>
                 <span className="font-semibold">{formatarReais(p.lucro_centavos)}</span>

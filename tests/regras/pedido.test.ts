@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularPedido, custoMedio, lucroPedido, type EntradaPedido } from "@/lib/regras/pedido";
+import { calcularPedido, custoMedio, lucroPedido, precoDeCusto, type EntradaPedido } from "@/lib/regras/pedido";
 import { config, produtos, regraStarTop } from "./fixtures";
 
 const base: EntradaPedido = { itens: [], tipo: "retirada", forma_pagamento: "pix", distancia_km: null };
@@ -202,5 +202,37 @@ describe("lucro e custo", () => {
       expect(Number.isInteger(v)).toBe(true);
     }
     p.itens.forEach((i) => expect(Number.isInteger(i.total_centavos)).toBe(true));
+  });
+});
+
+describe("loja própria a preço de custo", () => {
+  const custos = new Map([["banana10", 8300], ["nutella10", 8800], ["flocos10", 6000]]);
+  const proprio = precoDeCusto(produtos, custos);
+
+  it("cobra o custo de cada caixa, sem desconto de volume, e o lucro fica zero", () => {
+    const p = calcularPedido(
+      { ...base, itens: [{ produto_id: "banana10", quantidade: 8 }, { produto_id: "nutella10", quantidade: 4 }, { produto_id: "flocos10", quantidade: 1 }] },
+      proprio.produtos,
+      proprio.regras,
+      config,
+    );
+    expect(p.desconto_centavos).toBe(0);
+    expect(p.total_centavos).toBe(8 * 8300 + 4 * 8800 + 6000);
+    const itensComCusto = p.itens.map((i) => ({ quantidade: i.quantidade, custo_unitario_centavos: custos.get(i.produto_id)! }));
+    expect(lucroPedido(p.total_centavos, itensComCusto)).toBe(0);
+  });
+
+  it("entrega sem pedido mínimo", () => {
+    const p = calcularPedido(
+      { ...base, tipo: "entrega", distancia_km: 30, pedido_minimo_manual: proprio.pedido_minimo_manual, itens: [{ produto_id: "banana10", quantidade: 1 }] },
+      proprio.produtos,
+      proprio.regras,
+      config,
+    );
+    expect(p.abaixo_do_minimo).toBe(false);
+  });
+
+  it("não mexe no catálogo normal", () => {
+    expect(produtos.get("banana10")!.preco_centavos).toBe(9800);
   });
 });
