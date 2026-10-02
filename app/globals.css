@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --color-roxo-escuro: #3d0b36;
+  --color-roxo: #6f4a8e;
+  --color-amarelo: #f2b705;
+  --color-laranja: #f28c0f;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: #f6f3f8;
+  color: #1e1b24;
+}
+
+/* números alinhados em tabelas de valores */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

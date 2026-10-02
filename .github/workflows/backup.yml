@@ -1,0 +1,50 @@
+name: Backup diário do banco
+
+# O Supabase grátis não guarda backup para baixar. Este job faz um pg_dump todo dia às 3h (Brasília),
+# criptografa com a senha BACKUP_SENHA e guarda como artefato por 30 dias.
+# Precisa dos segredos do repositório: BACKUP_DATABASE_URL (conexão "Session pooler", porta 5432) e BACKUP_SENHA.
+# Para restaurar: baixe o artefato, rode
+#   gpg --batch --passphrase "SENHA" -d startop-AAAA-MM-DD.sql.gz.gpg | gunzip > backup.sql
+# e aplique o backup.sql num banco vazio com psql.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+    steps:
+      - name: Conferir segredos
+        id: segredos
+        run: |
+          if [ -z "$BACKUP_DATABASE_URL" ] || [ -z "$BACKUP_SENHA" ]; then
+            echo "Segredos BACKUP_DATABASE_URL e BACKUP_SENHA não configurados: backup pulado."
+            echo "ok=nao" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=sim" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Instalar cliente do Postgres 17
+        if: steps.segredos.outputs.ok == 'sim'
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+      - name: Dump criptografado
+        if: steps.segredos.outputs.ok == 'sim'
+        run: |
+          ARQ="startop-$(TZ=America/Sao_Paulo date +%F).sql.gz.gpg"
+          /usr/lib/postgresql/17/bin/pg_dump "$BACKUP_DATABASE_URL" --schema=public --schema=auth --no-owner --no-privileges \
+            | gzip | gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$BACKUP_SENHA" -o "$ARQ"
+          echo "ARQ=$ARQ" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        if: steps.segredos.outputs.ok == 'sim'
+        with:
+          name: ${{ env.ARQ }}
+          path: ${{ env.ARQ }}
+          retention-days: 30
