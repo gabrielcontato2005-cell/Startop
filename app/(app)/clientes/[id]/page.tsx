@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BotaoEnviar, Formulario } from "@/components/formulario";
 import { BotaoLink, Cartao, Etiqueta, Numero, Pagina, Secao, Vazio } from "@/components/ui";
 import { PAGAMENTO, STATUS, ehUuid, lerConfig } from "@/lib/dados";
 import { consultar, consultarUm } from "@/lib/db";
@@ -8,6 +9,7 @@ import { pedidoMinimo } from "@/lib/regras/entrega";
 import { formatarData } from "@/lib/regras/horario";
 import { formatarWhatsapp, linkWhatsapp } from "@/lib/regras/telefone";
 import { exigirEquipe } from "@/lib/sessao";
+import { marcarLojaPropria } from "../acoes";
 
 export const metadata = { title: "Cliente" };
 
@@ -22,6 +24,7 @@ export default async function FichaCliente({ params }: PageProps<"/clientes/[id]
       nome_loja: string; responsavel: string | null; whatsapp: string | null; cep: string | null; logradouro: string | null;
       numero: string | null; complemento: string | null; bairro: string | null; cidade: string | null; uf: string | null;
       distancia_km: number | null; pedido_minimo_manual: number | null; observacoes: string | null; ativo: boolean; criado_em: string;
+      loja_propria: boolean;
     }>(`select * from clientes where id = $1`, [id]),
     consultarUm<{
       pedidos: number; ultimo_pedido: string | null; frequencia_dias: number | null; ticket_medio_centavos: number | null;
@@ -62,6 +65,7 @@ export default async function FichaCliente({ params }: PageProps<"/clientes/[id]
       <div className="mb-4 flex flex-wrap gap-2">
         {m.sumido && <Etiqueta cor="bg-red-100 text-red-700">Sumido há {m.dias_sem_comprar} dias</Etiqueta>}
         {!c.ativo && <Etiqueta cor="bg-slate-200 text-slate-600">Inativo</Etiqueta>}
+        {c.loja_propria && <Etiqueta cor="bg-roxo/15 text-roxo">Loja própria · preço de custo</Etiqueta>}
         {aReceber && aReceber.valor > 0 && <Etiqueta cor="bg-orange-100 text-orange-800">A receber {formatarReais(aReceber.valor)}</Etiqueta>}
       </div>
 
@@ -146,6 +150,25 @@ export default async function FichaCliente({ params }: PageProps<"/clientes/[id]
           </Cartao>
         )}
       </Secao>
+
+      {dono && (
+        <Secao titulo="Loja própria">
+          <Cartao>
+            <Formulario acao={marcarLojaPropria} className="space-y-3">
+              <input type="hidden" name="id" value={id} />
+              <input type="hidden" name="ligar" value={c.loja_propria ? "nao" : "sim"} />
+              <p className="text-sm text-slate-600">
+                {c.loja_propria
+                  ? "Os pedidos desta loja saem a preço de custo, sem desconto nem pedido mínimo, e ficam fora do faturamento e do lucro. Só o dono faz pedido para ela."
+                  : "Para uma loja da própria StarTop: os pedidos passam a sair a preço de custo e ficam fora do faturamento e do lucro. Os pedidos já feitos não mudam."}
+              </p>
+              <BotaoEnviar estilo="secundario" className="w-full">
+                {c.loja_propria ? "Voltar a ser cliente comum" : "Marcar como loja própria"}
+              </BotaoEnviar>
+            </Formulario>
+          </Cartao>
+        </Secao>
+      )}
     </Pagina>
   );
 }
