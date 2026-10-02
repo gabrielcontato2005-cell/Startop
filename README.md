@@ -26,7 +26,8 @@ site. Os passos abaixo usam a Vercel, mas qualquer serviço que rode Next.js ser
 
 ### 1. Banco de dados (Supabase)
 
-1. Crie um projeto novo. Região: **South America (São Paulo)**. Guarde a senha do banco.
+1. Crie um projeto novo, de preferência na região **South America (São Paulo)**; em outra região, ajuste o
+   `vercel.json` (passo 2.3). Guarde a senha do banco.
 2. Abra **SQL Editor**, cole o conteúdo de `supabase/migrations/20261002000001_inicial.sql` e clique em
    **Run**. Depois faça o mesmo com `supabase/migrations/20261002000002_catalogo.sql` (sabores, preços e
    custos).
@@ -53,7 +54,9 @@ site. Os passos abaixo usam a Vercel, mas qualquer serviço que rode Next.js ser
 
    A chave secreta e a `DATABASE_URL` dão acesso total ao banco: só cadastre na Vercel, nunca no GitHub nem em
    mensagens.
-3. Clique em **Deploy**. Quando terminar, abra o endereço no celular, entre com o login do passo 1.3 e use
+3. O `vercel.json` põe o servidor do site na região `pdx1` (Oregon, EUA), a mesma do banco da StarTop no Supabase
+   (`us-west-2`). Se o banco for para outra região, troque ali: São Paulo é `gru1`.
+4. Clique em **Deploy**. Quando terminar, abra o endereço no celular, entre com o login do passo 1.3 e use
    **Adicionar à tela inicial** para instalar.
 
 ### 3. Primeiros ajustes dentro do sistema
