@@ -130,9 +130,7 @@ export default async function FichaCliente({ params }: PageProps<"/clientes/[id]
             {pedidos.map((p) => (
               <Link key={p.id} href={`/pedidos/${p.id}`} className="flex items-center justify-between gap-2 px-4 py-3 active:bg-slate-50">
                 <div>
-                  <div className="font-medium">
-                    nº {p.numero} · {formatarData(p.data_agendada)}
-                  </div>
+                  <div className="font-medium">{formatarData(p.data_agendada)} <span className="text-sm font-normal text-slate-400">nº {p.numero}</span></div>
                   <div className="mt-0.5 flex gap-1">
                     <Etiqueta cor={STATUS[p.status].cor}>{STATUS[p.status].nome}</Etiqueta>
                     {p.status !== "cancelado" && <Etiqueta cor={PAGAMENTO[p.status_pagamento].cor}>{PAGAMENTO[p.status_pagamento].nome}</Etiqueta>}
@@ -140,7 +138,8 @@ export default async function FichaCliente({ params }: PageProps<"/clientes/[id]
                 </div>
                 <div className="text-right text-sm">
                   <div className="font-semibold tabular-nums">{formatarReais(p.total_centavos)}</div>
-                  <div className="text-slate-500">{p.total_caixas} cx{dono && p.status !== "novo" && p.status !== "cancelado" ? ` · lucro ${formatarReais(p.lucro_centavos)}` : ""}</div>
+                  <div className="text-slate-500">{p.total_caixas} cx</div>
+                  {dono && p.status !== "novo" && p.status !== "cancelado" && <div className="text-xs text-green-700">lucro {formatarReais(p.lucro_centavos)}</div>}
                 </div>
               </Link>
             ))}

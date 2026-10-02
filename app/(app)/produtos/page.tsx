@@ -30,12 +30,14 @@ export default async function Produtos() {
             <Cartao className="divide-y divide-slate-100 p-0">
               {lista.map((p) => (
                 <Link key={p.id} href={`/produtos/${p.id}`} className="flex items-center justify-between gap-2 px-4 py-2.5 active:bg-slate-50">
-                  <span className={p.ativo ? "" : "text-slate-400 line-through"}>{p.sabor}</span>
-                  <span className="text-right text-sm tabular-nums">
-                    <span className="font-semibold">{formatarReais(p.preco_centavos)}</span>
-                    <span className="ml-2 text-slate-500">custo {formatarReais(p.custo_unitario_centavos)}</span>
-                    <span className={`ml-2 font-medium ${p.margem_centavos > 0 ? "text-green-700" : "text-red-700"}`}>
-                      +{formatarReais(p.margem_centavos)} ({String(p.margem_pct ?? 0).replace(".", ",")}%)
+                  <span className={`min-w-0 ${p.ativo ? "" : "text-slate-400 line-through"}`}>{p.sabor}</span>
+                  <span className="shrink-0 text-right text-sm tabular-nums">
+                    <span className="block font-semibold">{formatarReais(p.preco_centavos)}</span>
+                    <span className="block text-xs text-slate-500">
+                      custo {formatarReais(p.custo_unitario_centavos)} ·{" "}
+                      <span className={p.margem_centavos > 0 ? "text-green-700" : "text-red-700"}>
+                        +{formatarReais(p.margem_centavos)} ({String(p.margem_pct ?? 0).replace(".", ",")}%)
+                      </span>
                     </span>
                   </span>
                 </Link>

@@ -302,13 +302,13 @@ export default function FormPedido({ clientes, produtos, regras, config, dono, d
               const p = mapaProdutos.get(i.produto_id)!;
               return (
                 <div key={i.produto_id} className="flex items-center justify-between gap-2 px-4 py-2">
-                  <span>
+                  <span className="min-w-0">
                     <b>{i.quantidade}×</b> {p.linha.startsWith("Açaí mesclado") ? "Mesclado " : ""}{nome(p)}
+                    {i.desconto_centavos > 0 && <span className="block text-xs text-green-700">desconto −{formatarReais(i.desconto_centavos)}</span>}
                   </span>
-                  <span className="flex items-center gap-3 tabular-nums">
-                    {i.desconto_centavos > 0 && <span className="text-xs text-green-700">−{formatarReais(i.desconto_centavos)}</span>}
+                  <span className="flex shrink-0 items-center gap-3 tabular-nums">
                     {formatarReais(i.total_centavos)}
-                    <button type="button" onClick={() => setQtd({ ...qtd, [i.produto_id]: 0 })} className="text-slate-400" aria-label="Tirar">✕</button>
+                    <button type="button" onClick={() => setQtd({ ...qtd, [i.produto_id]: 0 })} className="p-1 text-slate-400" aria-label="Tirar">✕</button>
                   </span>
                 </div>
               );

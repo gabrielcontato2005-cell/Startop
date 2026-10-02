@@ -19,7 +19,9 @@ export function Pagina({ titulo, voltar, acao, children }: { titulo: string; vol
 }
 
 export function Cartao({ className = "", ...props }: ComponentProps<"div">) {
-  return <div className={`rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5 ${className}`} {...props} />;
+  // um fundo passado em className substitui o branco (o Tailwind não garante qual das duas classes vence)
+  const fundo = /(^|\s)bg-/.test(className) ? "" : "bg-white";
+  return <div className={`rounded-2xl p-4 shadow-sm ring-1 ring-black/5 ${fundo} ${className}`} {...props} />;
 }
 
 export function Secao({ titulo, children, acao }: { titulo: string; children: ReactNode; acao?: ReactNode }) {
@@ -98,7 +100,7 @@ export function Numero({ rotulo, valor, detalhe, destaque }: { rotulo: string; v
   return (
     <Cartao className={destaque ? "bg-roxo text-white ring-0" : ""}>
       <div className={`text-xs font-medium uppercase tracking-wide ${destaque ? "text-white/70" : "text-slate-500"}`}>{rotulo}</div>
-      <div className="mt-1 text-2xl font-bold tabular-nums">{valor}</div>
+      <div className="mt-1 whitespace-nowrap text-xl font-bold tabular-nums">{valor}</div>
       {detalhe && <div className={`mt-0.5 text-sm ${destaque ? "text-white/80" : "text-slate-500"}`}>{detalhe}</div>}
     </Cartao>
   );

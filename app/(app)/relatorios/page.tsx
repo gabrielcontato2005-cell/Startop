@@ -31,11 +31,11 @@ export default async function Relatorios({ searchParams }: PageProps<"/relatorio
           { valor: "30d", rotulo: "30 dias", href: "/relatorios?p=30d" },
         ]}
       />
-      <form className="mb-4 grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+      <form className="mb-4 grid grid-cols-2 gap-2">
         <input type="hidden" name="p" value="custom" />
-        <input type="date" name="de" defaultValue={p.de} className={classeCampo} aria-label="De" />
-        <input type="date" name="ate" defaultValue={p.ate} className={classeCampo} aria-label="Até" />
-        <button className="min-h-11 rounded-xl bg-roxo px-3 font-semibold text-white">Ver</button>
+        <input type="date" name="de" defaultValue={p.de} className={`${classeCampo} min-w-0`} aria-label="De" />
+        <input type="date" name="ate" defaultValue={p.ate} className={`${classeCampo} min-w-0`} aria-label="Até" />
+        <button className="col-span-2 min-h-11 rounded-xl bg-roxo px-3 font-semibold text-white">Ver período</button>
       </form>
       <p className="mb-3 text-sm text-slate-600">{formatarData(p.de)} a {formatarData(p.ate)}</p>
 
@@ -52,7 +52,7 @@ export default async function Relatorios({ searchParams }: PageProps<"/relatorio
         ) : (
           <Cartao className="space-y-1.5 text-sm">
             {dias.map((d) => (
-              <div key={d.data} className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-2">
+              <div key={d.data} className="grid grid-cols-[3rem_1fr_auto] items-center gap-2">
                 <span className="text-slate-500">{formatarData(d.data).slice(0, 5)}</span>
                 <span className="h-3 rounded-full bg-roxo/15">
                   <span className="block h-3 rounded-full bg-roxo" style={{ width: `${(100 * d.faturamento_centavos) / maxDia}%` }} />
@@ -79,16 +79,18 @@ export default async function Relatorios({ searchParams }: PageProps<"/relatorio
         ) : (
           <Cartao className="divide-y divide-slate-100 p-0 text-sm">
             {clientesOrdenados.map((c, i) => (
-              <Link key={c.cliente_id} href={`/clientes/${c.cliente_id}`} className="flex items-center justify-between gap-2 px-4 py-2">
-                <span className="min-w-0 truncate">
+              <Link key={c.cliente_id} href={`/clientes/${c.cliente_id}`} className="block px-4 py-2">
+                <div className="truncate font-medium">
                   <span className="mr-2 text-slate-400">{i + 1}.</span>
                   {c.nome_loja}
-                  <span className="text-slate-400"> · {c.caixas} cx</span>
-                </span>
-                <span className="shrink-0 text-right tabular-nums">
-                  <span className={ordem === "faturamento" ? "font-semibold" : ""}>{formatarReais(c.faturamento)}</span>
-                  <span className={`ml-2 text-green-700 ${ordem === "lucro" ? "font-semibold" : ""}`}>{formatarReais(c.lucro)}</span>
-                </span>
+                </div>
+                <div className="flex justify-between pl-6 tabular-nums text-slate-600">
+                  <span>{c.pedidos} pedidos · {c.caixas} cx</span>
+                  <span>
+                    <span className={ordem === "faturamento" ? "font-semibold text-slate-900" : ""}>{formatarReais(c.faturamento)}</span>
+                    <span className={`ml-2 text-green-700 ${ordem === "lucro" ? "font-semibold" : ""}`}>+{formatarReais(c.lucro)}</span>
+                  </span>
+                </div>
               </Link>
             ))}
           </Cartao>
@@ -101,14 +103,17 @@ export default async function Relatorios({ searchParams }: PageProps<"/relatorio
         ) : (
           <Cartao className="divide-y divide-slate-100 p-0 text-sm">
             {sabores.map((s) => (
-              <div key={`${s.linha}${s.produto}`} className="flex items-center justify-between gap-2 px-4 py-2">
-                <span className="min-w-0 truncate">
-                  {s.produto} <span className="text-xs text-slate-400">{s.linha}</span>
-                </span>
-                <span className="shrink-0 text-right tabular-nums">
-                  <b>{s.caixas} cx</b> <span className="text-slate-500">{formatarReais(s.faturamento)}</span>{" "}
-                  <span className="text-green-700">+{formatarReais(s.lucro)}</span>
-                </span>
+              <div key={`${s.linha}${s.produto}`} className="px-4 py-2">
+                <div className="flex justify-between gap-2">
+                  <span className="truncate font-medium">{s.produto}</span>
+                  <b className="shrink-0 tabular-nums">{s.caixas} cx</b>
+                </div>
+                <div className="flex justify-between gap-2 text-slate-500 tabular-nums">
+                  <span className="truncate text-xs">{s.linha}</span>
+                  <span className="shrink-0">
+                    {formatarReais(s.faturamento)} <span className="text-green-700">+{formatarReais(s.lucro)}</span>
+                  </span>
+                </div>
               </div>
             ))}
           </Cartao>

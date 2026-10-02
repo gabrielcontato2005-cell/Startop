@@ -91,10 +91,12 @@ export default async function DetalhePedido({ params }: PageProps<"/pedidos/[id]
   );
 
   // linha do tempo a partir da auditoria: criação e cada mudança de campo importante
+  const criadoEm = historico.find((h) => h.acao === "insert")?.em;
   const eventos = historico.flatMap((h) => {
     if (h.acao === "insert") return [{ em: h.em, nome: h.nome, texto: "Pedido criado" }];
     const mudou = Object.keys(NOMES_CAMPOS).filter((k) => JSON.stringify(h.antes?.[k]) !== JSON.stringify(h.depois?.[k]));
-    if (mudou.length === 0) return [];
+    // na criação o pedido é gravado e completado na mesma transação: só o status interessa
+    if (mudou.length === 0 || (h.em === criadoEm && !mudou.includes("status"))) return [];
     const texto = mudou.includes("status")
       ? `${STATUS[String(h.depois?.status)]?.nome ?? h.depois?.status}`
       : `Alterado: ${[...new Set(mudou.map((k) => NOMES_CAMPOS[k]))].join(", ")}`;
@@ -145,11 +147,11 @@ export default async function DetalhePedido({ params }: PageProps<"/pedidos/[id]
         <Cartao className="space-y-1 text-sm tabular-nums">
           {itens.map((i) => (
             <div key={i.produto_id} className="flex justify-between gap-2">
-              <span>
+              <span className="min-w-0">
                 <b>{i.quantidade}×</b> {i.linha.startsWith("Açaí mesclado") ? "Mesclado " : ""}{i.descricao}
-                <span className="text-slate-400"> · {formatarReais(i.preco_unitario_centavos)}</span>
+                <span className="block text-xs text-slate-400">{formatarReais(i.preco_unitario_centavos)} cada</span>
               </span>
-              <span>{formatarReais(i.quantidade * i.preco_unitario_centavos)}</span>
+              <span className="shrink-0">{formatarReais(i.quantidade * i.preco_unitario_centavos)}</span>
             </div>
           ))}
           <div className="mt-2 space-y-1 border-t border-slate-100 pt-2">
@@ -171,7 +173,7 @@ export default async function DetalhePedido({ params }: PageProps<"/pedidos/[id]
           </div>
           {p.tipo === "entrega" && p.pedido_minimo_usado != null && (
             <div className="pt-1 text-xs text-slate-500">
-              {String(p.distancia_km_usada ?? "").replace(".", ",")} km · mínimo {p.pedido_minimo_usado} caixas
+              {String(p.distancia_km_usada ?? "").replace(".", ",")} km · mínimo {p.pedido_minimo_usado} caixa{p.pedido_minimo_usado === 1 ? "" : "s"}
             </div>
           )}
         </Cartao>
