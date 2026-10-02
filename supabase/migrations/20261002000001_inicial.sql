@@ -40,21 +40,21 @@ create table public.usuarios (
   criado_em timestamptz not null default now()
 );
 
--- O primeiro usuário criado no Supabase vira dono; os demais entram como atendente
--- (ou com o perfil passado em raw_user_meta_data.perfil pela tela de Usuários).
+-- O primeiro usuário criado no Supabase vira dono. Os demais entram sem acesso: quem libera é a
+-- tela de Usuários (que define perfil e ativo pelo servidor). Assim um cadastro feito direto na API
+-- pública do Supabase não ganha acesso nem escolhe o próprio perfil pelos metadados.
 create or replace function public.criar_usuario_do_auth() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.usuarios (id, nome, email, perfil)
-  values (
-    new.id,
-    coalesce(nullif(new.raw_user_meta_data ->> 'nome', ''), split_part(coalesce(new.email, 'usuário'), '@', 1)),
-    new.email,
-    case
-      when not exists (select 1 from public.usuarios where perfil = 'dono') then 'dono'
-      else coalesce(nullif(new.raw_user_meta_data ->> 'perfil', ''), 'atendente')
-    end
-  )
+  -- trava para dois cadastros simultâneos não virarem dono os dois
+  lock table public.usuarios in share row exclusive mode;
+  insert into public.usuarios (id, nome, email, perfil, ativo)
+  select new.id,
+         coalesce(nullif(new.raw_user_meta_data ->> 'nome', ''), split_part(coalesce(new.email, 'usuário'), '@', 1)),
+         new.email,
+         case when primeiro then 'dono' else 'atendente' end,
+         primeiro
+    from (select not exists (select 1 from public.usuarios) as primeiro) x
   on conflict (id) do nothing;
   return new;
 end $$;

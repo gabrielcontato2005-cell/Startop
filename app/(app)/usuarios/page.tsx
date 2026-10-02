@@ -20,14 +20,23 @@ async function criar(_: EstadoAcao, d: FormData): Promise<EstadoAcao> {
   if (!nome || !email) return { erro: "Informe nome e e-mail." };
   if (senha.length < 8) return { erro: "A senha precisa de pelo menos 8 caracteres." };
   if (!(perfil in PERFIS)) return { erro: "Escolha o perfil." };
-  // o gatilho do banco cria a linha em usuarios com o perfil dos metadados
-  const { error } = await supabaseAdmin().auth.admin.createUser({
+  // o gatilho do banco cria a linha em usuarios sem acesso; o perfil e a liberação vêm daqui
+  const { data, error } = await supabaseAdmin().auth.admin.createUser({
     email,
     password: senha,
     email_confirm: true,
-    user_metadata: { nome, perfil },
+    user_metadata: { nome },
   });
   if (error) return { erro: error.message.includes("already") ? "Esse e-mail já tem acesso." : `Não deu para criar: ${error.message}` };
+  try {
+    await consultar(
+      `insert into usuarios (id, nome, email, perfil, ativo) values ($1, $2, $3, $4, true)
+       on conflict (id) do update set nome = excluded.nome, perfil = excluded.perfil, ativo = true`,
+      [data.user.id, nome, email, perfil],
+    );
+  } catch (e) {
+    return { erro: mensagemDoBanco(e) };
+  }
   revalidatePath("/usuarios");
   return { ok: `${nome} já pode entrar com o e-mail e a senha que você definiu.` };
 }

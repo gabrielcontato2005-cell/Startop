@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Formulario, BotaoEnviar, type EstadoAcao } from "@/components/formulario";
 import { Campo } from "@/components/ui";
+import { consultarUm } from "@/lib/db";
 import { usuarioLogado } from "@/lib/sessao";
 import { supabaseDaSessao } from "@/lib/supabase";
 
@@ -9,11 +10,16 @@ export const metadata = { title: "Entrar" };
 async function entrar(_: EstadoAcao, dados: FormData): Promise<EstadoAcao> {
   "use server";
   const supabase = await supabaseDaSessao();
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: String(dados.get("email") ?? "").trim(),
     password: String(dados.get("senha") ?? ""),
   });
   if (error) return { erro: "E-mail ou senha errados." };
+  const liberado = await consultarUm(`select 1 from usuarios where id = $1 and ativo`, [data.user.id]);
+  if (!liberado) {
+    await supabase.auth.signOut();
+    return { erro: "Seu acesso ainda não foi liberado. Fale com o dono." };
+  }
   redirect("/");
 }
 

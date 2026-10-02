@@ -24,11 +24,11 @@ export async function zerar(c: pg.Client) {
 export async function criarUsuario(c: pg.Client, email: string, perfil?: string): Promise<string> {
   const existente = await c.query(`select id from public.usuarios where email = $1`, [email]);
   if (existente.rows[0]) return existente.rows[0].id;
-  const r = await c.query(`insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id`, [
-    email,
-    perfil ? { perfil } : {},
-  ]);
-  return r.rows[0].id;
+  const r = await c.query(`insert into auth.users (email) values ($1) returning id`, [email]);
+  const id: string = r.rows[0].id;
+  // como a tela de Usuários: o gatilho cria sem acesso (ou dono, se for o primeiro) e o servidor libera
+  if (perfil) await c.query(`update public.usuarios set perfil = $2, ativo = true where id = $1`, [id, perfil]);
+  return id;
 }
 
 export async function produto(c: pg.Client, sabor: string, litros: number): Promise<string> {

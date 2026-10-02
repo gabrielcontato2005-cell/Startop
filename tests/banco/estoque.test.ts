@@ -16,7 +16,7 @@ describe.skipIf(!URL)("estoque e pedidos no banco", () => {
   beforeAll(async () => {
     c = await conectar();
     dono = await criarUsuario(c, "dono@startop.test");
-    atendente = await criarUsuario(c, "atendente@startop.test");
+    atendente = await criarUsuario(c, "atendente@startop.test", "atendente");
     banana = await produto(c, "Banana", 10);
     nutella = await produto(c, "Nutella", 10);
   });
@@ -26,12 +26,17 @@ describe.skipIf(!URL)("estoque e pedidos no banco", () => {
     cliente = await criarCliente(c);
   });
 
-  it("primeiro usuário vira dono, o seguinte atendente", async () => {
-    const r = await c.query(`select email, perfil from public.usuarios where email like '%@startop.test' order by email`);
+  it("primeiro usuário vira dono; cadastro de fora entra sem acesso, mesmo pedindo perfil nos metadados", async () => {
+    await c.query(`insert into auth.users (email, raw_user_meta_data) values ('intruso@startop.test', '{"perfil": "dono"}')`);
+    const r = await c.query(`select email, perfil, ativo from public.usuarios where email like '%@startop.test' order by email`);
     expect(r.rows).toEqual([
-      { email: "atendente@startop.test", perfil: "atendente" },
-      { email: "dono@startop.test", perfil: "dono" },
+      { email: "atendente@startop.test", perfil: "atendente", ativo: true },
+      { email: "dono@startop.test", perfil: "dono", ativo: true },
+      { email: "intruso@startop.test", perfil: "atendente", ativo: false },
     ]);
+    const p = await c.query(`select public._perfil(id) as perfil from public.usuarios where email = 'intruso@startop.test'`);
+    expect(p.rows[0].perfil).toBeNull();
+    await c.query(`delete from auth.users where email = 'intruso@startop.test'`);
   });
 
   it("lote soma ao físico e recalcula o custo médio", async () => {
