@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import type { EstadoAcao } from "@/components/formulario";
-import { consultar, consultarUm, ehEstoqueInsuficiente, mensagemDoBanco } from "@/lib/db";
+import { consultar, consultarUm, ehEstoqueInsuficiente, emTransacao, mensagemDoBanco } from "@/lib/db";
 import { ehUuid, lerCatalogo, lerConfig, lerRegras } from "@/lib/dados";
 import { lerReais } from "@/lib/regras/dinheiro";
-import { calcularPedido, precoDeCusto, type FormaPagamento, type RegraDesconto, type TipoPedido } from "@/lib/regras/pedido";
+import { calcularPedido, precoConsumidor, precoDeCusto, type FormaPagamento, type RegraDesconto, type TipoPedido } from "@/lib/regras/pedido";
+import { normalizarWhatsapp } from "@/lib/regras/telefone";
 import { exigirEquipe, exigirUsuario } from "@/lib/sessao";
 
 export type EnvioPedido = {
@@ -23,6 +24,9 @@ export type EnvioPedido = {
   liberar_minimo: boolean;
   /** dono: vende mesmo sem estoque */
   forcar_estoque: boolean;
+  /** venda avulsa: quem comprou (opcional) */
+  comprador_nome?: string;
+  comprador_telefone?: string;
 };
 
 export type RespostaPedido = { ok: true; id: string } | { ok: false; erro: string; semEstoque?: boolean };
@@ -49,8 +53,8 @@ export async function salvarPedido(envio: EnvioPedido): Promise<RespostaPedido> 
   }
 
   const [cliente, catalogo, regras, cfg] = await Promise.all([
-    consultarUm<{ distancia_km: number | null; pedido_minimo_manual: number | null; ativo: boolean; loja_propria: boolean }>(
-      `select distancia_km, pedido_minimo_manual, ativo, loja_propria from clientes where id = $1`,
+    consultarUm<{ distancia_km: number | null; pedido_minimo_manual: number | null; ativo: boolean; loja_propria: boolean; consumidor_final: boolean }>(
+      `select distancia_km, pedido_minimo_manual, ativo, loja_propria, consumidor_final from clientes where id = $1`,
       [envio.cliente_id],
     ),
     lerCatalogo(false),
@@ -60,6 +64,11 @@ export async function salvarPedido(envio: EnvioPedido): Promise<RespostaPedido> 
   if (!cliente) return { ok: false, erro: "Cliente não encontrado." };
 
   if (cliente.loja_propria && !dono) return { ok: false, erro: "Pedido da loja própria só o dono faz." };
+
+  const compradorNome = cliente.consumidor_final ? (envio.comprador_nome ?? "").trim().slice(0, 80) || null : null;
+  const telefoneDigitado = cliente.consumidor_final ? (envio.comprador_telefone ?? "").trim() : "";
+  const compradorTelefone = telefoneDigitado ? normalizarWhatsapp(telefoneDigitado) : null;
+  if (telefoneDigitado && !compradorTelefone) return { ok: false, erro: "WhatsApp do comprador inválido." };
 
   let produtos = new Map(catalogo.map((p) => [p.id, p]));
   if (envio.itens.some((i) => i.quantidade > 0 && !produtos.get(i.produto_id)?.ativo)) {
@@ -73,6 +82,11 @@ export async function salvarPedido(envio: EnvioPedido): Promise<RespostaPedido> 
     produtos = aCusto.produtos;
     regrasUsadas = aCusto.regras;
     minimoManual = aCusto.pedido_minimo_manual;
+  } else if (cliente.consumidor_final) {
+    const consumidor = precoConsumidor(produtos);
+    produtos = consumidor.produtos;
+    regrasUsadas = consumidor.regras;
+    minimoManual = consumidor.pedido_minimo_manual;
   }
 
   const calc = calcularPedido(
@@ -120,17 +134,25 @@ export async function salvarPedido(envio: EnvioPedido): Promise<RespostaPedido> 
   };
 
   try {
-    const r = await consultarUm<{ id: string }>(`select salvar_pedido($1, $2, $3, $4, $5, $6) as id`, [
-      envio.id ?? null,
-      JSON.stringify(pedido),
-      JSON.stringify(calc.itens),
-      envio.confirmar,
-      dono && envio.forcar_estoque,
-      u.id,
-    ]);
+    const id = await emTransacao(async (q) => {
+      const [r] = await q<{ id: string }>(`select salvar_pedido($1, $2, $3, $4, $5, $6) as id`, [
+        envio.id ?? null,
+        JSON.stringify(pedido),
+        JSON.stringify(calc.itens),
+        envio.confirmar,
+        dono && envio.forcar_estoque,
+        u.id,
+      ]);
+      await q(
+        `update pedidos set comprador_nome = $2, comprador_telefone = $3
+          where id = $1 and (comprador_nome, comprador_telefone) is distinct from ($2::text, $3::text)`,
+        [r.id, compradorNome, compradorTelefone],
+      );
+      return r.id;
+    });
     revalidatePath("/pedidos");
     revalidatePath("/");
-    return { ok: true, id: r!.id };
+    return { ok: true, id };
   } catch (e) {
     return { ok: false, erro: mensagemDoBanco(e), semEstoque: ehEstoqueInsuficiente(e) };
   }

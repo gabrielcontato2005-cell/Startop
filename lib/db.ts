@@ -35,6 +35,22 @@ export async function consultarUm<T = Record<string, unknown>>(sql: string, para
   return (await consultar<T>(sql, params))[0] ?? null;
 }
 
+/** Roda várias consultas numa transação só: se uma falhar, nada fica gravado. */
+export async function emTransacao<T>(fn: (consultar: <L = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<L[]>) => Promise<T>): Promise<T> {
+  const cliente = await pool().connect();
+  try {
+    await cliente.query("begin");
+    const r = await fn(async <L,>(sql: string, params: unknown[] = []) => (await cliente.query(sql, params)).rows as L[]);
+    await cliente.query("commit");
+    return r;
+  } catch (e) {
+    await cliente.query("rollback").catch(() => {});
+    throw e;
+  } finally {
+    cliente.release();
+  }
+}
+
 /** Mensagem de erro do banco própria para mostrar na tela (as funções SQL já escrevem em português). */
 export function mensagemDoBanco(e: unknown): string {
   const err = e as { code?: string; message?: string; constraint?: string };

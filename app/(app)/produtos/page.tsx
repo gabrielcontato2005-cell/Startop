@@ -32,7 +32,12 @@ export default async function Produtos() {
                 <Link key={p.id} href={`/produtos/${p.id}`} className="flex items-center justify-between gap-2 px-4 py-2.5 active:bg-slate-50">
                   <span className={`min-w-0 ${p.ativo ? "" : "text-slate-400 line-through"}`}>{p.sabor}</span>
                   <span className="shrink-0 text-right text-sm tabular-nums">
-                    <span className="block font-semibold">{formatarReais(p.preco_centavos)}</span>
+                    <span className="block font-semibold">
+                      {formatarReais(p.preco_centavos)}
+                      {p.preco_consumidor_centavos != null && (
+                        <span className="font-normal text-slate-500"> · consumidor {formatarReais(p.preco_consumidor_centavos)}</span>
+                      )}
+                    </span>
                     <span className="block text-xs text-slate-500">
                       custo {formatarReais(p.custo_unitario_centavos)} ·{" "}
                       <span className={p.margem_centavos > 0 ? "text-green-700" : "text-red-700"}>
@@ -51,6 +56,9 @@ export default async function Produtos() {
                     <Campo rotulo="Novo preço (R$)" name="preco" inputMode="decimal" defaultValue={reais(ref.preco_centavos)} required />
                     <Campo rotulo="Novo custo (R$)" name="custo_medio" inputMode="decimal" placeholder="manter" dica="Vazio mantém o custo de cada um" />
                   </div>
+                  <Campo rotulo="Preço consumidor (R$)" name="preco_consumidor" inputMode="decimal"
+                    defaultValue={ref.preco_consumidor_centavos == null ? "" : reais(ref.preco_consumidor_centavos)}
+                    placeholder="igual ao preço" dica="Preço da venda avulsa. Vazio = o mesmo preço de venda" />
                   <BotaoEnviar className="w-full">Aplicar em {lista.length} sabores</BotaoEnviar>
                 </Formulario>
               </details>

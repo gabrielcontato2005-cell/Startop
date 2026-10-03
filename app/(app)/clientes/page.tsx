@@ -39,14 +39,14 @@ export default async function Clientes({ searchParams }: PageProps<"/clientes">)
   const filtro = typeof sp.filtro === "string" && FILTROS.some((f) => f.valor === sp.filtro) ? sp.filtro : "ativos";
   const digitos = busca.replace(/\D/g, "");
 
-  // comprando = ao menos uma compra nos últimos 30 dias (loja própria não conta)
+  // comprando = ao menos uma compra nos últimos 30 dias (loja própria e venda avulsa não contam)
   const totais = await consultarUm<{ cadastrados: number; ativos: number; comprando: number; nunca: number }>(
     `select count(*)::int as cadastrados,
             count(*) filter (where c.ativo)::int as ativos,
             count(*) filter (where c.ativo and m.dias_sem_comprar <= 30)::int as comprando,
             count(*) filter (where c.ativo and m.pedidos = 0)::int as nunca
        from clientes c join v_cliente_metricas m on m.cliente_id = c.id
-      where not c.loja_propria`,
+      where not c.loja_propria and not c.consumidor_final`,
   );
 
   const clientes = await consultar<Linha>(
@@ -57,8 +57,9 @@ export default async function Clientes({ searchParams }: PageProps<"/clientes">)
        join v_cliente_metricas m on m.cliente_id = c.id
        left join (select cliente_id, sum(total_centavos - pago_centavos) as a_receber
                     from v_vendas where status_pagamento <> 'pago' group by cliente_id) r on r.cliente_id = c.id
-      where ($1 = '' or c.nome_loja ilike '%' || $1 || '%' or c.responsavel ilike '%' || $1 || '%'
-             or c.bairro ilike '%' || $1 || '%' or ($2 <> '' and c.whatsapp like '%' || $2 || '%'))
+      where not c.consumidor_final
+        and ($1 = '' or c.nome_loja ilike '%' || $1 || '%' or c.responsavel ilike '%' || $1 || '%'
+               or c.bairro ilike '%' || $1 || '%' or ($2 <> '' and c.whatsapp like '%' || $2 || '%'))
         and case $3
               when 'ativos' then c.ativo
               when 'inativos' then not c.ativo

@@ -186,3 +186,14 @@ export function precoDeCusto<P extends ProdutoPreco>(
   const aCusto = new Map([...produtos].map(([id, p]) => [id, { ...p, preco_centavos: custos.get(id) ?? 0 }]));
   return { produtos: aCusto, regras: [], pedido_minimo_manual: 0 };
 }
+
+/**
+ * Venda avulsa (consumidor final, sem cadastro): cada caixa sai pelo preço de consumidor do produto, ou pelo
+ * preço normal quando ele não tem um; sem desconto de volume e sem pedido mínimo.
+ */
+export function precoConsumidor<P extends ProdutoPreco & { preco_consumidor_centavos?: number | null }>(
+  produtos: Map<string, P>,
+): { produtos: Map<string, P>; regras: RegraDesconto[]; pedido_minimo_manual: number } {
+  const consumidor = new Map([...produtos].map(([id, p]) => [id, { ...p, preco_centavos: p.preco_consumidor_centavos ?? p.preco_centavos }]));
+  return { produtos: consumidor, regras: [], pedido_minimo_manual: 0 };
+}

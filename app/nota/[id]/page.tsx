@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PAGAMENTO, ehUuid, lerConfig } from "@/lib/dados";
+import { NOME_CLIENTE_SQL, PAGAMENTO, ehUuid, lerConfig } from "@/lib/dados";
 import { consultar, consultarUm } from "@/lib/db";
 import { formatarReais } from "@/lib/regras/dinheiro";
 import { formatarData, formatarDataHora } from "@/lib/regras/horario";
@@ -16,7 +16,7 @@ type Pedido = {
   tipo: "entrega" | "retirada"; data_agendada: string; hora_agendada: string | null; status: string; status_pagamento: string;
   forma_pagamento: string; subtotal_centavos: number; desconto_centavos: number; taxa_entrega_centavos: number;
   acrescimo_cartao_centavos: number; total_centavos: number; pago_centavos: number; total_caixas: number;
-  observacoes: string | null; a_preco_de_custo: boolean; criado_em: string; criado_por: string | null;
+  observacoes: string | null; a_preco_de_custo: boolean; avulsa: boolean; comprador_nome: string | null; criado_em: string; criado_por: string | null;
 };
 
 type Item = { descricao: string; quantidade: number; preco_unitario_centavos: number; total_centavos: number };
@@ -36,7 +36,8 @@ export default async function NotaPedido({ params, searchParams }: PageProps<"/n
 
   const [p, itens, cfg] = await Promise.all([
     consultarUm<Pedido>(
-      `select p.*, to_char(p.hora_agendada, 'HH24:MI') as hora_agendada, c.nome_loja, c.responsavel, c.whatsapp,
+      `select p.*, to_char(p.hora_agendada, 'HH24:MI') as hora_agendada, ${NOME_CLIENTE_SQL} as nome_loja, c.responsavel,
+              coalesce(p.comprador_telefone, c.whatsapp) as whatsapp, c.consumidor_final as avulsa,
               concat_ws(', ', nullif(concat_ws(' ', c.logradouro, c.numero), ''), c.complemento, c.bairro, c.cidade) as endereco,
               uc.nome as criado_por
          from pedidos p join clientes c on c.id = p.cliente_id
@@ -75,7 +76,7 @@ export default async function NotaPedido({ params, searchParams }: PageProps<"/n
         <div>Documento sem valor fiscal</div>
       </div>
 
-      <div><b>Cliente:</b> {p.nome_loja}</div>
+      <div><b>Cliente:</b> {p.avulsa ? `${p.comprador_nome ?? "Consumidor"} (venda avulsa)` : p.nome_loja}</div>
       {p.responsavel && <div><b>Responsável:</b> {p.responsavel}</div>}
       {p.whatsapp && <div><b>WhatsApp:</b> {formatarWhatsapp(p.whatsapp)}</div>}
       {p.tipo === "entrega" && p.endereco && <div><b>Endereço:</b> {p.endereco}</div>}

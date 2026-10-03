@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BotaoEnviar, Formulario } from "@/components/formulario";
 import { BotaoLink, Campo, Cartao, Etiqueta, Pagina, Secao, Selecao } from "@/components/ui";
-import { PAGAMENTO, ROTULO_AVANCAR, STATUS, ehUuid, lerConfig, proximoStatus } from "@/lib/dados";
+import { NOME_CLIENTE_SQL, PAGAMENTO, ROTULO_AVANCAR, STATUS, ehUuid, lerConfig, proximoStatus } from "@/lib/dados";
 import { consultar, consultarUm } from "@/lib/db";
 import { formatarReais } from "@/lib/regras/dinheiro";
 import { formatarData, formatarDataHora } from "@/lib/regras/horario";
@@ -20,7 +20,7 @@ type Pedido = {
   forma_pagamento: string; subtotal_centavos: number; desconto_centavos: number; taxa_entrega_sugerida_centavos: number;
   taxa_entrega_centavos: number; acrescimo_cartao_centavos: number; total_centavos: number; pago_centavos: number;
   custo_total_centavos: number; lucro_centavos: number; total_caixas: number; distancia_km_usada: number | null;
-  pedido_minimo_usado: number | null; a_preco_de_custo: boolean; liberado_por: string | null; observacoes: string | null; motivo_cancelamento: string | null;
+  pedido_minimo_usado: number | null; a_preco_de_custo: boolean; avulsa: boolean; comprador_nome: string | null; liberado_por: string | null; observacoes: string | null; motivo_cancelamento: string | null;
   criado_em: string; criado_por: string | null;
 };
 
@@ -37,7 +37,8 @@ export default async function DetalhePedido({ params }: PageProps<"/pedidos/[id]
 
   const [p, itens, pagamentos, historico, cfg] = await Promise.all([
     consultarUm<Pedido>(
-      `select p.*, to_char(p.hora_agendada, 'HH24:MI') as hora_agendada, c.nome_loja, c.whatsapp,
+      `select p.*, to_char(p.hora_agendada, 'HH24:MI') as hora_agendada, ${NOME_CLIENTE_SQL} as nome_loja,
+              coalesce(p.comprador_telefone, c.whatsapp) as whatsapp, c.consumidor_final as avulsa,
               concat_ws(', ', nullif(concat_ws(' ', c.logradouro, c.numero), ''), c.complemento, c.bairro, c.cidade) as endereco,
               ul.nome as liberado_por, uc.nome as criado_por
          from pedidos p join clientes c on c.id = p.cliente_id
@@ -76,7 +77,7 @@ export default async function DetalhePedido({ params }: PageProps<"/pedidos/[id]
   const resumo = textoResumoPedido(
     {
       numero: p.numero,
-      nome_loja: p.nome_loja,
+      nome_loja: p.avulsa ? (p.comprador_nome ?? "") : p.nome_loja,
       tipo: p.tipo,
       data_agendada: p.data_agendada,
       hora_agendada: p.hora_agendada,
@@ -112,14 +113,19 @@ export default async function DetalhePedido({ params }: PageProps<"/pedidos/[id]
       <div className="mb-3 flex flex-wrap gap-2">
         <Etiqueta cor={STATUS[p.status].cor}>{STATUS[p.status].nome}</Etiqueta>
         {p.status !== "cancelado" && <Etiqueta cor={PAGAMENTO[p.status_pagamento].cor}>{PAGAMENTO[p.status_pagamento].nome}</Etiqueta>}
+        {p.avulsa && <Etiqueta cor="bg-amarelo/30 text-roxo-escuro">Venda avulsa · consumidor</Etiqueta>}
         {p.a_preco_de_custo && <Etiqueta cor="bg-roxo/15 text-roxo">Loja própria · preço de custo</Etiqueta>}
         {p.liberado_por && <Etiqueta cor="bg-amber-100 text-amber-800">Abaixo do mínimo, liberado por {p.liberado_por}</Etiqueta>}
       </div>
 
       <Cartao className="mb-4">
-        <Link href={`/clientes/${p.cliente_id}`} className="text-lg font-bold text-roxo-escuro underline-offset-2 hover:underline">
-          {p.nome_loja}
-        </Link>
+        {p.avulsa ? (
+          <div className="text-lg font-bold text-roxo-escuro">{p.comprador_nome ?? "Venda avulsa"}</div>
+        ) : (
+          <Link href={`/clientes/${p.cliente_id}`} className="text-lg font-bold text-roxo-escuro underline-offset-2 hover:underline">
+            {p.nome_loja}
+          </Link>
+        )}
         <div className="text-sm text-slate-600">
           {p.tipo === "entrega" ? "Entrega" : "Retirada na fábrica"} · {formatarData(p.data_agendada)}
           {p.hora_agendada && ` às ${p.hora_agendada}`}
@@ -183,6 +189,11 @@ export default async function DetalhePedido({ params }: PageProps<"/pedidos/[id]
             </div>
           )}
         </Cartao>
+        {editavel && (
+          <BotaoLink href={`/pedidos/${id}/editar`} estilo="secundario" className="mt-3 w-full">
+            + Acrescentar ou tirar itens
+          </BotaoLink>
+        )}
       </Secao>
 
       {p.status !== "cancelado" && (

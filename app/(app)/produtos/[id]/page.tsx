@@ -17,8 +17,8 @@ export default async function EditarProduto({ params }: PageProps<"/produtos/[id
   const { id } = await params;
   if (!ehUuid(id)) notFound();
   const [p, historico] = await Promise.all([
-    consultarUm<{ sabor: string; linha: string; tamanho_litros: number; preco_centavos: number; custo_medio_centavos: number; custo_adicional_centavos: number; estoque_minimo: number; ativo: boolean }>(
-      `select vp.sabor, vp.linha, vp.tamanho_litros, vp.preco_centavos, vp.custo_medio_centavos, vp.custo_adicional_centavos,
+    consultarUm<{ sabor: string; linha: string; tamanho_litros: number; preco_centavos: number; preco_consumidor_centavos: number | null; custo_medio_centavos: number; custo_adicional_centavos: number; estoque_minimo: number; ativo: boolean }>(
+      `select vp.sabor, vp.linha, vp.tamanho_litros, vp.preco_centavos, vp.preco_consumidor_centavos, vp.custo_medio_centavos, vp.custo_adicional_centavos,
               vp.estoque_minimo, p.ativo
          from v_produtos vp join produtos p on p.id = vp.id where vp.id = $1`, [id]),
     consultar<{ preco_centavos: number; custo_medio_centavos: number; custo_adicional_centavos: number; vigente_desde: string; nome: string | null }>(
@@ -35,7 +35,12 @@ export default async function EditarProduto({ params }: PageProps<"/produtos/[id
         <Formulario acao={salvarProduto}>
           <input type="hidden" name="id" value={id} />
           <Campo rotulo="Nome do sabor" name="sabor" defaultValue={p.sabor} required dica="Muda o nome nos dois tamanhos" />
-          <Campo rotulo="Preço de venda (R$)" name="preco" inputMode="decimal" defaultValue={reais(p.preco_centavos)} required />
+          <div className="grid grid-cols-2 gap-3">
+            <Campo rotulo="Preço de venda (R$)" name="preco" inputMode="decimal" defaultValue={reais(p.preco_centavos)} required />
+            <Campo rotulo="Preço consumidor (R$)" name="preco_consumidor" inputMode="decimal"
+              defaultValue={p.preco_consumidor_centavos == null ? "" : reais(p.preco_consumidor_centavos)}
+              placeholder={reais(p.preco_centavos)} dica="Venda avulsa. Vazio = preço de venda" />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Campo rotulo="Custo da fábrica (R$)" name="custo_medio" inputMode="decimal" defaultValue={reais(p.custo_medio_centavos)} required
               dica="Atualiza sozinho com a média dos lotes" />

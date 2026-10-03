@@ -13,7 +13,7 @@ export default async function EditarPedido({ params }: PageProps<"/pedidos/[id]/
   if (!ehUuid(id)) notFound();
   const p = await consultarUm<Omit<PedidoInicial, "itens" | "liberado"> & { status: string; liberado_abaixo_minimo_por: string | null }>(
     `select id, numero, cliente_id, tipo, data_agendada, to_char(hora_agendada, 'HH24:MI') as hora_agendada, forma_pagamento,
-            taxa_entrega_centavos, observacoes, status, liberado_abaixo_minimo_por
+            taxa_entrega_centavos, observacoes, status, liberado_abaixo_minimo_por, comprador_nome, comprador_telefone
        from pedidos where id = $1`,
     [id],
   );

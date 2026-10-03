@@ -263,4 +263,20 @@ describe.skipIf(!URL)("estoque e pedidos no banco", () => {
     await c.query(`update public.clientes set loja_propria = false where id = $1`, [cliente]);
     expect((await c.query(`select count(*)::int as n from public.v_vendas`)).rows[0].n).toBe(1);
   });
+
+  it("venda avulsa: um só cliente consumidor, a venda baixa o estoque e entra no faturamento com o nome de quem comprou", async () => {
+    const avulso = (await c.query(`insert into public.clientes (nome_loja, consumidor_final) values ('Venda avulsa (consumidor)', true) returning id`)).rows[0].id;
+    await expect(c.query(`insert into public.clientes (nome_loja, consumidor_final) values ('Outro', true)`)).rejects.toThrow(/clientes_um_consumidor_final/);
+
+    await lote(c, dono, [{ produto_id: banana, quantidade: 5 }]);
+    const pedido = await salvarPedido(c, atendente, avulso, [{ produto_id: banana, quantidade: 2 }], { data: "2026-09-02" });
+    await c.query(`update public.pedidos set comprador_nome = 'Maria', comprador_telefone = '5521999998888' where id = $1`, [pedido]);
+    await status(c, pedido, "entregue", atendente);
+
+    expect((await saldo(c, banana)).fisico).toBe(3);
+    const venda = await c.query(`select comprador_nome, comprador_telefone, a_preco_de_custo from public.v_vendas where id = $1`, [pedido]);
+    expect(venda.rows[0]).toEqual({ comprador_nome: "Maria", comprador_telefone: "5521999998888", a_preco_de_custo: false });
+    const dia = await c.query(`select caixas from public.v_resumo_diario where data = '2026-09-02'`);
+    expect(Number(dia.rows[0].caixas)).toBe(2);
+  });
 });
