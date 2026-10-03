@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Abas, BotaoLink, Cartao, Etiqueta, Pagina, Vazio, classeCampo } from "@/components/ui";
-import { consultar } from "@/lib/db";
+import { Abas, BotaoLink, Cartao, Etiqueta, Numero, Pagina, Vazio, classeCampo } from "@/components/ui";
+import { consultar, consultarUm } from "@/lib/db";
 import { formatarReais } from "@/lib/regras/dinheiro";
 import { formatarData } from "@/lib/regras/horario";
 import { formatarWhatsapp } from "@/lib/regras/telefone";
@@ -39,6 +39,16 @@ export default async function Clientes({ searchParams }: PageProps<"/clientes">)
   const filtro = typeof sp.filtro === "string" && FILTROS.some((f) => f.valor === sp.filtro) ? sp.filtro : "ativos";
   const digitos = busca.replace(/\D/g, "");
 
+  // comprando = ao menos uma compra nos últimos 30 dias (loja própria não conta)
+  const totais = await consultarUm<{ cadastrados: number; ativos: number; comprando: number; nunca: number }>(
+    `select count(*)::int as cadastrados,
+            count(*) filter (where c.ativo)::int as ativos,
+            count(*) filter (where c.ativo and m.dias_sem_comprar <= 30)::int as comprando,
+            count(*) filter (where c.ativo and m.pedidos = 0)::int as nunca
+       from clientes c join v_cliente_metricas m on m.cliente_id = c.id
+      where not c.loja_propria`,
+  );
+
   const clientes = await consultar<Linha>(
     `select c.id, c.nome_loja, c.responsavel, c.whatsapp, c.bairro, c.cidade, c.ativo,
             m.pedidos, m.ultimo_pedido, m.dias_sem_comprar, m.faturado_centavos, m.lucro_centavos, m.sumido,
@@ -67,6 +77,14 @@ export default async function Clientes({ searchParams }: PageProps<"/clientes">)
 
   return (
     <Pagina titulo="Clientes" acao={<BotaoLink href="/clientes/novo">+ Novo</BotaoLink>}>
+      {totais && (
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <Numero rotulo="Cadastrados" valor={totais.cadastrados} detalhe={`${totais.ativos} ativos`} />
+          <Numero rotulo="Comprando" valor={totais.comprando} destaque detalhe="compraram nos últimos 30 dias" />
+          <Numero rotulo="Parados" valor={Math.max(0, totais.ativos - totais.comprando - totais.nunca)} detalhe="sem compra há mais de 30 dias" />
+          <Numero rotulo="Nunca compraram" valor={totais.nunca} />
+        </div>
+      )}
       <form className="mb-3">
         <input type="hidden" name="filtro" value={filtro} />
         <input name="q" defaultValue={busca} placeholder="Buscar por nome, bairro ou telefone" className={classeCampo} type="search" />
@@ -98,11 +116,16 @@ export default async function Clientes({ searchParams }: PageProps<"/clientes">)
                   ) : (
                     <div className="font-semibold tabular-nums">{formatarReais(c.faturado_centavos)}</div>
                   )}
+                  {filtro !== "devendo" && (
+                    <div className="text-xs text-slate-500">
+                      {c.pedidos} compra{c.pedidos === 1 ? "" : "s"}
+                    </div>
+                  )}
                   {dono && filtro !== "devendo" && <div className="text-xs text-green-700">lucro {formatarReais(c.lucro_centavos)}</div>}
                 </div>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                {c.ultimo_pedido ? <span>Último pedido {formatarData(c.ultimo_pedido)} ({c.dias_sem_comprar} dias)</span> : <span>Nunca comprou</span>}
+                {c.ultimo_pedido ? <span>Último pedido {formatarData(c.ultimo_pedido)} ({c.dias_sem_comprar} dia{c.dias_sem_comprar === 1 ? "" : "s"})</span> : <span>Nunca comprou</span>}
                 {c.sumido && <Etiqueta cor="bg-red-100 text-red-700">Sumido</Etiqueta>}
                 {!c.ativo && <Etiqueta cor="bg-slate-200 text-slate-600">Inativo</Etiqueta>}
               </div>
