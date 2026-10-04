@@ -25,22 +25,21 @@ export async function salvarProduto(_: EstadoAcao, dados: FormData): Promise<Est
   const consumidor = lerReais(txt(dados, "preco_consumidor"));
   const custo = lerReais(txt(dados, "custo_medio"));
   const adicional = lerReais(txt(dados, "custo_adicional")) ?? 0;
-  const minimo = inteiro(dados, "estoque_minimo") ?? 0;
   const sabor = txt(dados, "sabor");
   if (preco == null || preco < 0) return { erro: "Preço inválido." };
   if (custo == null || custo < 0) return { erro: "Custo inválido." };
   if ((consumidor == null && txt(dados, "preco_consumidor") !== "") || (consumidor != null && consumidor < 0)) return { erro: "Preço para consumidor inválido." };
-  if (adicional < 0 || Number.isNaN(minimo)) return { erro: "Confira os valores." };
+  if (adicional < 0) return { erro: "Confira os valores." };
   if (!sabor) return { erro: "Informe o nome do sabor." };
 
   try {
     await consultar(
       `with p as (
          update produtos set preco_centavos = $2, custo_medio_centavos = $3, custo_adicional_centavos = $4,
-                estoque_minimo = $5, ativo = $6, atualizado_por = $7, preco_consumidor_centavos = $9
+                ativo = $5, atualizado_por = $6, preco_consumidor_centavos = $8
           where id = $1 returning sabor_id)
-       update sabores set nome = $8 from p where sabores.id = p.sabor_id`,
-      [id, preco, custo, adicional, minimo, dados.get("ativo") !== "nao", u.id, sabor, consumidor],
+       update sabores set nome = $7 from p where sabores.id = p.sabor_id`,
+      [id, preco, custo, adicional, dados.get("ativo") !== "nao", u.id, sabor, consumidor],
     );
   } catch (e) {
     return { erro: mensagemDoBanco(e) };
