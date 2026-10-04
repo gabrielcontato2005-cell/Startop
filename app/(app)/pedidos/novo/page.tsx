@@ -8,7 +8,7 @@ export const metadata = { title: "Novo pedido" };
 
 export default async function NovoPedido({ searchParams }: PageProps<"/pedidos/novo">) {
   const u = await exigirEquipe();
-  const { cliente } = await searchParams;
+  const { cliente, avulsa } = await searchParams;
   const [clientes, produtos, regras, config, custos] = await Promise.all([
     lerClientesParaPedido(u.perfil === "dono"),
     lerCatalogo(),
@@ -23,7 +23,7 @@ export default async function NovoPedido({ searchParams }: PageProps<"/pedidos/n
   const dataPadrao = minutos(agora) > minutos(config.horario_fechamento) ? somarDias(hoje, 1) : hoje;
 
   return (
-    <Pagina titulo="Novo pedido">
+    <Pagina titulo={avulsa ? "Venda avulsa" : "Novo pedido"}>
       <FormPedido
         clientes={clientes}
         produtos={produtos}
@@ -32,7 +32,9 @@ export default async function NovoPedido({ searchParams }: PageProps<"/pedidos/n
         custos={custos}
         dono={u.perfil === "dono"}
         dataPadrao={dataPadrao}
-        clienteInicial={typeof cliente === "string" && ehUuid(cliente) ? cliente : undefined}
+        clienteInicial={
+          avulsa ? clientes.find((c) => c.consumidor_final)?.id : typeof cliente === "string" && ehUuid(cliente) ? cliente : undefined
+        }
       />
     </Pagina>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularPedido, custoMedio, lucroPedido, precoDeCusto, type EntradaPedido } from "@/lib/regras/pedido";
+import { calcularPedido, custoMedio, lucroPedido, precoConsumidor, precoDeCusto, type EntradaPedido } from "@/lib/regras/pedido";
 import { config, produtos, regraStarTop } from "./fixtures";
 
 const base: EntradaPedido = { itens: [], tipo: "retirada", forma_pagamento: "pix", distancia_km: null };
@@ -234,5 +234,36 @@ describe("loja própria a preço de custo", () => {
 
   it("não mexe no catálogo normal", () => {
     expect(produtos.get("banana10")!.preco_centavos).toBe(9800);
+  });
+});
+
+describe("venda avulsa para consumidor final", () => {
+  const comConsumidor = new Map([...produtos].map(([id, p]) => [id, { ...p, preco_consumidor_centavos: id === "banana10" ? 12000 : null }]));
+  const avulsa = precoConsumidor(comConsumidor);
+
+  it("usa o preço de consumidor quando o produto tem; senão o preço normal; sem desconto de volume", () => {
+    const p = calcularPedido(
+      { ...base, itens: [{ produto_id: "banana10", quantidade: 8 }, { produto_id: "nutella10", quantidade: 4 }] },
+      avulsa.produtos,
+      avulsa.regras,
+      config,
+    );
+    expect(p.desconto_centavos).toBe(0);
+    expect(p.total_centavos).toBe(8 * 12000 + 4 * 10300);
+  });
+
+  it("entrega de 1 caixa sem pedido mínimo", () => {
+    const p = calcularPedido(
+      { ...base, tipo: "entrega", distancia_km: null, pedido_minimo_manual: avulsa.pedido_minimo_manual, taxa_entrega_centavos: 500, itens: [{ produto_id: "banana10", quantidade: 1 }] },
+      avulsa.produtos,
+      avulsa.regras,
+      config,
+    );
+    expect(p.abaixo_do_minimo).toBe(false);
+    expect(p.total_centavos).toBe(12000 + 500);
+  });
+
+  it("não mexe no catálogo normal", () => {
+    expect(comConsumidor.get("banana10")!.preco_centavos).toBe(9800);
   });
 });

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Cartao, Pagina, Secao, Vazio } from "@/components/ui";
+import { NOME_CLIENTE_SQL } from "@/lib/dados";
 import { consultar } from "@/lib/db";
 import { formatarData, hojeSP, somarDias } from "@/lib/regras/horario";
 import { exigirUsuario } from "@/lib/sessao";
@@ -23,12 +24,12 @@ export default async function Separacao({ searchParams }: PageProps<"/separacao"
       [data],
     ),
     consultar<{ id: string; numero: number; nome_loja: string; tipo: string; hora: string | null; itens: string }>(
-      `select p.id, p.numero, c.nome_loja, p.tipo, to_char(p.hora_agendada, 'HH24:MI') as hora,
+      `select p.id, p.numero, ${NOME_CLIENTE_SQL} as nome_loja, p.tipo, to_char(p.hora_agendada, 'HH24:MI') as hora,
               string_agg(i.quantidade || '× ' || vp.sabor || ' ' || vp.tamanho_litros || 'L', ', ' order by vp.linha_ordem, vp.sabor) as itens
          from pedidos p join clientes c on c.id = p.cliente_id
          join itens_pedido i on i.pedido_id = p.id join v_produtos vp on vp.id = i.produto_id
         where p.data_agendada = $1 and p.status = 'confirmado'
-        group by p.id, c.nome_loja order by p.hora_agendada nulls last, p.numero`,
+        group by p.id, c.id order by p.hora_agendada nulls last, p.numero`,
       [data],
     ),
   ]);

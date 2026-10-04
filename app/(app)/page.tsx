@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BotaoLink, Cartao, Etiqueta, Numero, Pagina, Secao, Vazio } from "@/components/ui";
-import { STATUS } from "@/lib/dados";
+import { NOME_CLIENTE_SQL, STATUS } from "@/lib/dados";
 import { consultar, consultarUm } from "@/lib/db";
 import { formatarReais } from "@/lib/regras/dinheiro";
 import { hojeSP } from "@/lib/regras/horario";
@@ -10,7 +10,7 @@ type PedidoDia = { id: string; numero: number; nome_loja: string; tipo: string; 
 
 async function pedidosDoDia(hoje: string) {
   return consultar<PedidoDia>(
-    `select p.id, p.numero, c.nome_loja, p.tipo, to_char(p.hora_agendada, 'HH24:MI') as hora, p.status, p.total_caixas, p.total_centavos
+    `select p.id, p.numero, ${NOME_CLIENTE_SQL} as nome_loja, p.tipo, to_char(p.hora_agendada, 'HH24:MI') as hora, p.status, p.total_caixas, p.total_centavos
        from pedidos p join clientes c on c.id = p.cliente_id
       where p.data_agendada = $1 and p.status <> 'cancelado'
       order by p.status = 'entregue', p.hora_agendada nulls last, p.numero`,
@@ -78,7 +78,7 @@ export default async function Inicio() {
       `select produto_id, sabor, tamanho_litros, disponivel, estoque_minimo from v_estoque
         where ativo and abaixo_minimo order by disponivel - estoque_minimo, sabor limit 8`,
     ),
-    consultarUm<{ n: number }>(`select count(*) as n from v_cliente_metricas m join clientes c on c.id = m.cliente_id where c.ativo and m.sumido`),
+    consultarUm<{ n: number }>(`select count(*) as n from v_cliente_metricas m join clientes c on c.id = m.cliente_id where c.ativo and m.sumido and not c.consumidor_final`),
     pedidosDoDia(hoje),
   ]);
 

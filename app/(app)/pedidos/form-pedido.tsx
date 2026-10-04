@@ -7,7 +7,7 @@ import { Aviso, Botao, Cartao, Secao, classeCampo } from "@/components/ui";
 import type { ClienteResumo, Config, ProdutoCatalogo } from "@/lib/dados";
 import { formatarReais, lerReais } from "@/lib/regras/dinheiro";
 import { formatarData } from "@/lib/regras/horario";
-import { calcularPedido, precoDeCusto, type FormaPagamento, type RegraDesconto, type TipoPedido } from "@/lib/regras/pedido";
+import { calcularPedido, precoConsumidor, precoDeCusto, type FormaPagamento, type RegraDesconto, type TipoPedido } from "@/lib/regras/pedido";
 import { formatarWhatsapp } from "@/lib/regras/telefone";
 import { habitosDoCliente, salvarPedido } from "./acoes";
 
@@ -22,6 +22,8 @@ export type PedidoInicial = {
   taxa_entrega_centavos: number;
   observacoes: string | null;
   liberado: boolean;
+  comprador_nome?: string | null;
+  comprador_telefone?: string | null;
   itens: { produto_id: string; quantidade: number }[];
 };
 
@@ -56,12 +58,16 @@ export default function FormPedido({ clientes, produtos, regras, config, custos,
   }, [produtos]);
   const [linhaAtiva, setLinhaAtiva] = useState(linhas[0]?.id ?? "");
   const [tamanho, setTamanho] = useState<Record<string, number>>({});
-  const [tipo, setTipo] = useState<TipoPedido>(inicial?.tipo ?? "entrega");
+  const ehAvulso = (id: string | undefined) => !!id && !!clientes.find((c) => c.id === id)?.consumidor_final;
+  // a venda avulsa costuma ser no balcão: começa como retirada
+  const [tipo, setTipo] = useState<TipoPedido>(inicial?.tipo ?? (ehAvulso(clienteInicial) ? "retirada" : "entrega"));
   const [data, setData] = useState(inicial?.data_agendada ?? dataPadrao);
   const [hora, setHora] = useState(inicial?.hora_agendada?.slice(0, 5) ?? "");
   const [forma, setForma] = useState<FormaPagamento>(inicial?.forma_pagamento ?? "pix");
   const [taxaTexto, setTaxaTexto] = useState(inicial && inicial.tipo === "entrega" ? (inicial.taxa_entrega_centavos / 100).toFixed(2).replace(".", ",") : "");
   const [obs, setObs] = useState(inicial?.observacoes ?? "");
+  const [compradorNome, setCompradorNome] = useState(inicial?.comprador_nome ?? "");
+  const [compradorTel, setCompradorTel] = useState(formatarWhatsapp(inicial?.comprador_telefone));
   const [liberar, setLiberar] = useState(inicial?.liberado ?? false);
   const [forcar, setForcar] = useState(false);
   const [erro, setErro] = useState<{ texto: string; semEstoque?: boolean } | null>(null);
@@ -69,16 +75,18 @@ export default function FormPedido({ clientes, produtos, regras, config, custos,
   const [habitos, setHabitos] = useState<Awaited<ReturnType<typeof habitosDoCliente>> | null>(null);
 
   const cliente = clientes.find((c) => c.id === clienteId);
+  const avulsoCliente = clientes.find((c) => c.consumidor_final);
+  const avulso = !!cliente?.consumidor_final;
   const mapaProdutos = useMemo(() => new Map(produtos.map((p) => [p.id, p])), [produtos]);
 
   useEffect(() => {
-    if (!clienteId || inicial) return;
+    if (!clienteId || inicial || avulso) return;
     let ativo = true;
     habitosDoCliente(clienteId).then((h) => ativo && setHabitos(h));
     return () => {
       ativo = false;
     };
-  }, [clienteId, inicial]);
+  }, [clienteId, inicial, avulso]);
 
   const itens = Object.entries(qtd).filter(([, q]) => q > 0).map(([produto_id, quantidade]) => ({ produto_id, quantidade }));
   const taxaDigitada = taxaTexto.trim() === "" ? null : lerReais(taxaTexto);
@@ -86,19 +94,21 @@ export default function FormPedido({ clientes, produtos, regras, config, custos,
     () => (cliente?.loja_propria && custos ? precoDeCusto(mapaProdutos, new Map(Object.entries(custos))) : null),
     [cliente?.loja_propria, custos, mapaProdutos],
   );
-  const precos = aCusto?.produtos ?? mapaProdutos;
+  const consumidor = useMemo(() => (avulso ? precoConsumidor(mapaProdutos) : null), [avulso, mapaProdutos]);
+  const especial = aCusto ?? consumidor;
+  const precos = especial?.produtos ?? mapaProdutos;
   const calc = calcularPedido(
     {
       itens,
       tipo,
       forma_pagamento: forma,
       distancia_km: cliente?.distancia_km ?? null,
-      pedido_minimo_manual: aCusto ? aCusto.pedido_minimo_manual : cliente?.pedido_minimo_manual,
+      pedido_minimo_manual: especial ? especial.pedido_minimo_manual : cliente?.pedido_minimo_manual,
       taxa_entrega_centavos: taxaDigitada,
       hora_agendada: hora || null,
     },
     precos,
-    aCusto?.regras ?? regras,
+    especial?.regras ?? regras,
     config,
   );
 
@@ -119,8 +129,9 @@ export default function FormPedido({ clientes, produtos, regras, config, custos,
   const filtrados = useMemo(() => {
     const b = semAcento(busca.trim());
     const d = busca.replace(/\D/g, "");
-    if (!b) return clientes.slice(0, 30);
-    return clientes
+    const lojas = clientes.filter((c) => !c.consumidor_final);
+    if (!b) return lojas.slice(0, 30);
+    return lojas
       .filter((c) => semAcento(`${c.nome_loja} ${c.responsavel ?? ""} ${c.bairro ?? ""}`).includes(b) || (d.length >= 3 && c.whatsapp?.includes(d)))
       .slice(0, 30);
   }, [busca, clientes]);
@@ -155,6 +166,8 @@ export default function FormPedido({ clientes, produtos, regras, config, custos,
         confirmar,
         liberar_minimo: liberar,
         forcar_estoque: forcar,
+        comprador_nome: compradorNome,
+        comprador_telefone: compradorTel,
       });
       if (r.ok) router.push(`/pedidos/${r.id}`);
       else setErro({ texto: r.erro, semEstoque: r.semEstoque });
@@ -165,6 +178,16 @@ export default function FormPedido({ clientes, produtos, regras, config, custos,
   if (!cliente) {
     return (
       <div>
+        {avulsoCliente && (
+          <Botao
+            type="button"
+            estilo="secundario"
+            className="mb-3 w-full"
+            onClick={() => (setClienteId(avulsoCliente.id), setTipo("retirada"))}
+          >
+            Venda avulsa (consumidor, sem cadastro)
+          </Botao>
+        )}
         <input
           autoFocus
           type="search"
@@ -200,11 +223,15 @@ export default function FormPedido({ clientes, produtos, regras, config, custos,
     <div className="pb-40">
       <Cartao className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate text-lg font-bold">{cliente.nome_loja}</div>
-          <div className="text-sm text-slate-500">
-            {cliente.distancia_km != null ? `${String(cliente.distancia_km).replace(".", ",")} km` : "distância não cadastrada"}
-            {calc.pedido_minimo != null && !aCusto && ` · mínimo ${calc.pedido_minimo} cx`}
-          </div>
+          <div className="truncate text-lg font-bold">{avulso ? "Venda avulsa" : cliente.nome_loja}</div>
+          {avulso ? (
+            <div className="text-sm text-slate-500">Consumidor final: preço de consumidor, sem desconto de volume e sem mínimo</div>
+          ) : (
+            <div className="text-sm text-slate-500">
+              {cliente.distancia_km != null ? `${String(cliente.distancia_km).replace(".", ",")} km` : "distância não cadastrada"}
+              {calc.pedido_minimo != null && !aCusto && ` · mínimo ${calc.pedido_minimo} cx`}
+            </div>
+          )}
           {aCusto && <div className="mt-1 text-sm font-semibold text-roxo">Loja própria: preço de custo, fora do faturamento e do lucro</div>}
         </div>
         {!inicial && (
@@ -213,6 +240,21 @@ export default function FormPedido({ clientes, produtos, regras, config, custos,
           </button>
         )}
       </Cartao>
+
+      {avulso && (
+        <Secao titulo="Comprador (opcional)">
+          <Cartao className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-slate-700">Nome</span>
+              <input value={compradorNome} onChange={(e) => setCompradorNome(e.target.value)} maxLength={80} autoComplete="off" className={classeCampo} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-slate-700">WhatsApp</span>
+              <input value={compradorTel} onChange={(e) => setCompradorTel(e.target.value)} inputMode="tel" autoComplete="off" className={classeCampo} />
+            </label>
+          </Cartao>
+        </Secao>
+      )}
 
       {!inicial && habitos && habitos.ultimo.length > 0 && (
         <Botao
@@ -394,7 +436,7 @@ export default function FormPedido({ clientes, produtos, regras, config, custos,
       </Cartao>
 
       <div className="space-y-2">
-        {tipo === "entrega" && !aCusto && cliente.distancia_km == null && cliente.pedido_minimo_manual == null && (
+        {tipo === "entrega" && !especial && cliente.distancia_km == null && cliente.pedido_minimo_manual == null && (
           <Aviso tipo="info">Cliente sem distância cadastrada: não dá para conferir o pedido mínimo nem sugerir a taxa.</Aviso>
         )}
         {calc.fora_do_horario && <Aviso tipo="erro">Horário fora do funcionamento ({config.horario_abertura} às {config.horario_fechamento}).</Aviso>}

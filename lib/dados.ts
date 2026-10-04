@@ -30,6 +30,8 @@ export type ProdutoCatalogo = {
   linha_ordem: number;
   tamanho_litros: number;
   preco_centavos: number;
+  /** preço da venda avulsa para consumidor final; null = o mesmo preço de venda */
+  preco_consumidor_centavos: number | null;
   disponivel: number;
   fisico: number;
   reservado: number;
@@ -40,7 +42,7 @@ export type ProdutoCatalogo = {
 /** Catálogo com saldo de estoque, sem custo (serve para qualquer perfil). */
 export async function lerCatalogo(somenteAtivos = true): Promise<ProdutoCatalogo[]> {
   return consultar<ProdutoCatalogo>(`
-    select vp.id, vp.sabor, vp.linha, vp.linha_id, vp.categoria, vp.linha_ordem, vp.tamanho_litros, vp.preco_centavos,
+    select vp.id, vp.sabor, vp.linha, vp.linha_id, vp.categoria, vp.linha_ordem, vp.tamanho_litros, vp.preco_centavos, vp.preco_consumidor_centavos,
            e.fisico - e.reservado as disponivel, e.fisico, e.reservado, vp.estoque_minimo, vp.ativo
       from v_produtos vp join estoque e on e.produto_id = vp.id
      where $1::boolean is false or vp.ativo
@@ -85,12 +87,16 @@ export type ClienteResumo = {
   distancia_km: number | null;
   pedido_minimo_manual: number | null;
   loja_propria: boolean;
+  consumidor_final: boolean;
 };
 
-/** Clientes da tela de pedido. A loja própria (pedido a preço de custo) só aparece para o dono. */
+/**
+ * Clientes da tela de pedido. A loja própria (pedido a preço de custo) só aparece para o dono; o cliente da
+ * venda avulsa vem junto, e a tela mostra ele num botão à parte.
+ */
 export async function lerClientesParaPedido(dono: boolean): Promise<ClienteResumo[]> {
   return consultar<ClienteResumo>(`
-    select id, nome_loja, responsavel, whatsapp, bairro, cidade, distancia_km, pedido_minimo_manual, loja_propria
+    select id, nome_loja, responsavel, whatsapp, bairro, cidade, distancia_km, pedido_minimo_manual, loja_propria, consumidor_final
       from clientes where ativo and ($1 or not loja_propria) order by lower(nome_loja)`, [dono]);
 }
 
@@ -99,6 +105,9 @@ export async function lerCustos(): Promise<Record<string, number>> {
   const r = await consultar<{ id: string; custo: number }>(`select id, custo_unitario_centavos as custo from v_produtos`);
   return Object.fromEntries(r.map((c) => [c.id, c.custo]));
 }
+
+/** Nome do cliente para listas e notas (pedido p, cliente c): na venda avulsa, o nome de quem comprou. */
+export const NOME_CLIENTE_SQL = `case when c.consumidor_final then coalesce('Avulsa · ' || p.comprador_nome, 'Venda avulsa') else c.nome_loja end`;
 
 export const STATUS: Record<string, { nome: string; cor: string }> = {
   novo: { nome: "Novo", cor: "bg-slate-100 text-slate-700" },

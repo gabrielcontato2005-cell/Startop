@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Abas, Cartao, Etiqueta, Pagina, Vazio } from "@/components/ui";
-import { PAGAMENTO, ROTULO_AVANCAR, STATUS, proximoStatus } from "@/lib/dados";
+import { Abas, BotaoLink, Cartao, Etiqueta, Pagina, Vazio } from "@/components/ui";
+import { NOME_CLIENTE_SQL, PAGAMENTO, ROTULO_AVANCAR, STATUS, proximoStatus } from "@/lib/dados";
 import { consultar } from "@/lib/db";
 import { formatarReais } from "@/lib/regras/dinheiro";
 import { formatarData, hojeSP, somarDias } from "@/lib/regras/horario";
@@ -28,7 +28,7 @@ export default async function Pedidos({ searchParams }: PageProps<"/pedidos">) {
     id: string; numero: number; nome_loja: string; bairro: string | null; tipo: string; data_agendada: string; hora_agendada: string | null;
     status: string; status_pagamento: string; total_caixas: number; total_centavos: number; pago_centavos: number;
   }>(
-    `select p.id, p.numero, c.nome_loja, c.bairro, p.tipo, p.data_agendada, to_char(p.hora_agendada, 'HH24:MI') as hora_agendada,
+    `select p.id, p.numero, ${NOME_CLIENTE_SQL} as nome_loja, c.bairro, p.tipo, p.data_agendada, to_char(p.hora_agendada, 'HH24:MI') as hora_agendada,
             p.status, p.status_pagamento, p.total_caixas, p.total_centavos, p.pago_centavos
        from pedidos p join clientes c on c.id = p.cliente_id
       where case $2
@@ -48,7 +48,10 @@ export default async function Pedidos({ searchParams }: PageProps<"/pedidos">) {
   const total = pedidos.filter((p) => p.status !== "cancelado").reduce((s, p) => s + (filtro === "a_receber" ? p.total_centavos - p.pago_centavos : p.total_centavos), 0);
 
   return (
-    <Pagina titulo="Pedidos">
+    <Pagina
+      titulo="Pedidos"
+      acao={u.perfil !== "entregador" ? <BotaoLink href="/pedidos/novo?avulsa=1" estilo="secundario">Venda avulsa</BotaoLink> : undefined}
+    >
       {filtro !== "a_receber" && (
         <div className="mb-3 flex items-center gap-2">
           <Link href={qs(somarDias(data, -1))} className="rounded-xl bg-white px-4 py-2.5 text-lg ring-1 ring-slate-200" aria-label="Dia anterior">‹</Link>
