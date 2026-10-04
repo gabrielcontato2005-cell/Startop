@@ -1,4 +1,4 @@
-import { Abas, BotaoLink, Cartao, Etiqueta, Numero, Pagina, Secao } from "@/components/ui";
+import { Abas, BotaoLink, Cartao, Numero, Pagina, Secao } from "@/components/ui";
 import { lerCatalogo, lerLinhas, type ProdutoCatalogo } from "@/lib/dados";
 import { consultar } from "@/lib/db";
 import { exigirEquipe } from "@/lib/sessao";
@@ -25,14 +25,13 @@ export default async function Estoque({ searchParams }: PageProps<"/estoque">) {
   const etapa = new Map(porPedido.map((e) => [e.produto_id, e]));
   const de = (id: string) => etapa.get(id) ?? { a_separar: 0, separado: 0, em_rota: 0 };
   const filtro = typeof sp.linha === "string" ? sp.linha : "todas";
-  const visiveis = produtos.filter((p) => (filtro === "baixo" ? p.estoque_minimo > 0 && p.disponivel <= p.estoque_minimo : filtro === "todas" || p.linha_id === filtro));
+  const visiveis = produtos.filter((p) => filtro === "todas" || p.linha_id === filtro);
 
   const grupos = new Map<string, ProdutoCatalogo[]>();
   for (const p of visiveis) {
     const chave = `${p.linha} · ${p.tamanho_litros} L`;
     grupos.set(chave, [...(grupos.get(chave) ?? []), p]);
   }
-  const baixos = produtos.filter((p) => p.estoque_minimo > 0 && p.disponivel <= p.estoque_minimo).length;
   const soma = (f: (p: ProdutoCatalogo) => number) => produtos.reduce((s, p) => s + f(p), 0);
   const emRota = soma((p) => de(p.id).em_rota);
   const naCamara = soma((p) => p.fisico) - emRota;
@@ -53,18 +52,16 @@ export default async function Estoque({ searchParams }: PageProps<"/estoque">) {
         <Numero rotulo="Separado" valor={soma((p) => de(p.id).separado)} detalhe={`${soma((p) => de(p.id).a_separar)} a separar`} />
         <Numero rotulo="Saiu p/ entrega" valor={emRota} detalhe="ainda não entregue" />
       </div>
-      {baixos > 0 && <p className="mb-3 text-sm font-semibold text-red-700">{baixos} abaixo do mínimo</p>}
       <Abas
         ativo={filtro}
         itens={[
           { valor: "todas", rotulo: "Tudo", href: "/estoque" },
-          { valor: "baixo", rotulo: `Baixo (${baixos})`, href: "/estoque?linha=baixo" },
           ...linhas.map((l) => ({ valor: l.id, rotulo: l.nome, href: `/estoque?linha=${l.id}` })),
         ]}
       />
       <p className="mb-3 text-xs text-slate-500">
         Câm. = na câmara fria · A sep. = pedido confirmado, falta separar · Sep. = separado ou esperando retirada · Rota = saiu para
-        entrega e ainda não foi entregue · Livre = o que dá para vender.
+        entrega e ainda não foi entregue · Livre = o que dá para vender (em vermelho com 2 caixas ou menos).
       </p>
       {[...grupos].map(([titulo, lista]) => (
         <Secao key={titulo} titulo={titulo}>
@@ -78,20 +75,16 @@ export default async function Estoque({ searchParams }: PageProps<"/estoque">) {
               <span className="text-right">Livre</span>
             </div>
             {lista.map((p) => {
-              const baixo = p.estoque_minimo > 0 && p.disponivel <= p.estoque_minimo;
               const e = de(p.id);
               const zero = (n: number) => (n === 0 ? "text-slate-300" : "text-slate-600");
               return (
                 <div key={p.id} className="grid grid-cols-[1fr_repeat(5,2.25rem)] items-center gap-x-2 border-b border-slate-50 px-3 py-2 text-sm last:border-0">
-                  <span className="flex min-w-0 flex-wrap items-center gap-x-2">
-                    {p.sabor}
-                    {baixo && <Etiqueta cor="bg-red-100 text-red-700">mín. {p.estoque_minimo}</Etiqueta>}
-                  </span>
+                  <span className="min-w-0">{p.sabor}</span>
                   <span className="text-right tabular-nums text-slate-600">{p.fisico - e.em_rota}</span>
                   <span className={`text-right tabular-nums ${zero(e.a_separar)}`}>{e.a_separar}</span>
                   <span className={`text-right tabular-nums ${zero(e.separado)}`}>{e.separado}</span>
                   <span className={`text-right tabular-nums ${zero(e.em_rota)}`}>{e.em_rota}</span>
-                  <span className={`text-right font-bold tabular-nums ${p.disponivel <= 0 ? "text-red-700" : baixo ? "text-orange-600" : ""}`}>{p.disponivel}</span>
+                  <span className={`text-right font-bold tabular-nums ${p.disponivel <= 2 ? "text-red-700" : ""}`}>{p.disponivel}</span>
                 </div>
               );
             })}

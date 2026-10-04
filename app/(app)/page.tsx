@@ -58,7 +58,7 @@ export default async function Inicio() {
     );
   }
 
-  const [dia, mes, aReceber, baixos, sumidos, pedidos] = await Promise.all([
+  const [dia, mes, aReceber, sumidos, pedidos] = await Promise.all([
     consultarUm<{ pedidos: number; caixas: number; faturamento: number; lucro: number }>(
       `select count(*) as pedidos, coalesce(sum(total_caixas), 0) as caixas, coalesce(sum(total_centavos), 0) as faturamento,
               coalesce(sum(lucro_centavos), 0) as lucro
@@ -73,10 +73,6 @@ export default async function Inicio() {
     consultarUm<{ valor: number; pedidos: number }>(
       `select coalesce(sum(total_centavos - pago_centavos), 0) as valor, count(*) as pedidos
          from v_vendas where status_pagamento <> 'pago' and status = 'entregue'`,
-    ),
-    consultar<{ produto_id: string; sabor: string; tamanho_litros: number; disponivel: number; estoque_minimo: number }>(
-      `select produto_id, sabor, tamanho_litros, disponivel, estoque_minimo from v_estoque
-        where ativo and abaixo_minimo order by disponivel - estoque_minimo, sabor limit 8`,
     ),
     consultarUm<{ n: number }>(`select count(*) as n from v_cliente_metricas m join clientes c on c.id = m.cliente_id where c.ativo and m.sumido and not c.consumidor_final`),
     pedidosDoDia(hoje),
@@ -101,22 +97,6 @@ export default async function Inicio() {
         <ListaDoDia pedidos={pedidos} />
       </Secao>
 
-      <Secao titulo="Estoque baixo" acao={<Link href="/estoque?linha=baixo" className="text-sm font-medium text-roxo">Ver tudo →</Link>}>
-        {baixos.length === 0 ? (
-          <Vazio>Nenhum sabor abaixo do mínimo.</Vazio>
-        ) : (
-          <Cartao className="divide-y divide-slate-100 p-0">
-            {baixos.map((b) => (
-              <div key={b.produto_id} className="flex justify-between px-4 py-2 text-sm">
-                <span>{b.sabor} {b.tamanho_litros} L</span>
-                <span className={b.disponivel <= 0 ? "font-bold text-red-700" : "font-semibold text-orange-600"}>
-                  {b.disponivel} livre{b.disponivel === 1 ? "" : "s"} <span className="font-normal text-slate-400">/ mín. {b.estoque_minimo}</span>
-                </span>
-              </div>
-            ))}
-          </Cartao>
-        )}
-      </Secao>
       <p className="text-center text-xs text-slate-500">
         <Link href="/relatorios" className="font-medium text-roxo underline">Relatórios completos</Link>
       </p>

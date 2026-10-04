@@ -17,9 +17,9 @@ export default async function EditarProduto({ params }: PageProps<"/produtos/[id
   const { id } = await params;
   if (!ehUuid(id)) notFound();
   const [p, historico] = await Promise.all([
-    consultarUm<{ sabor: string; linha: string; tamanho_litros: number; preco_centavos: number; preco_consumidor_centavos: number | null; custo_medio_centavos: number; custo_adicional_centavos: number; estoque_minimo: number; ativo: boolean }>(
+    consultarUm<{ sabor: string; linha: string; tamanho_litros: number; preco_centavos: number; preco_consumidor_centavos: number | null; custo_medio_centavos: number; custo_adicional_centavos: number; ativo: boolean }>(
       `select vp.sabor, vp.linha, vp.tamanho_litros, vp.preco_centavos, vp.preco_consumidor_centavos, vp.custo_medio_centavos, vp.custo_adicional_centavos,
-              vp.estoque_minimo, p.ativo
+              p.ativo
          from v_produtos vp join produtos p on p.id = vp.id where vp.id = $1`, [id]),
     consultar<{ preco_centavos: number; custo_medio_centavos: number; custo_adicional_centavos: number; vigente_desde: string; nome: string | null }>(
       `select h.preco_centavos, h.custo_medio_centavos, h.custo_adicional_centavos, h.vigente_desde, u.nome
@@ -46,7 +46,6 @@ export default async function EditarProduto({ params }: PageProps<"/produtos/[id
               dica="Atualiza sozinho com a média dos lotes" />
             <Campo rotulo="Embalagem e outros (R$)" name="custo_adicional" inputMode="decimal" defaultValue={reais(p.custo_adicional_centavos)} />
           </div>
-          <Campo rotulo="Estoque mínimo (caixas)" name="estoque_minimo" inputMode="numeric" defaultValue={p.estoque_minimo} dica="Abaixo disso aparece o alerta" />
           <Selecao rotulo="Situação" name="ativo" defaultValue={p.ativo ? "sim" : "nao"}>
             <option value="sim">À venda</option>
             <option value="nao">Fora de linha (some do pedido)</option>
