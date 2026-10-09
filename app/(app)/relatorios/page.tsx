@@ -7,7 +7,6 @@ import { exigirDono } from "@/lib/sessao";
 
 export const metadata = { title: "Relatórios" };
 
-const pct = (parte: number, todo: number) => (todo > 0 ? `${((100 * parte) / todo).toFixed(1).replace(".", ",")}%` : "—");
 
 export default async function Relatorios({ searchParams }: PageProps<"/relatorios">) {
   await exigirDono();
@@ -41,7 +40,7 @@ export default async function Relatorios({ searchParams }: PageProps<"/relatorio
 
       <div className="mb-5 grid grid-cols-2 gap-3">
         <Numero rotulo="Faturamento" valor={formatarReais(r!.faturamento)} detalhe={`${r!.pedidos} pedidos · ${r!.clientes} lojas`} />
-        <Numero rotulo="Lucro bruto" valor={formatarReais(r!.lucro)} detalhe={`margem ${pct(r!.lucro, r!.faturamento)}`} destaque />
+        <Numero rotulo="Lucro (pago)" valor={formatarReais(r!.lucro)} detalhe={`+ ${formatarReais(r!.lucro_a_receber)} a receber`} destaque />
         <Numero rotulo="Custo" valor={formatarReais(r!.custo)} />
         <Numero rotulo="Caixas" valor={r!.caixas} detalhe={r!.pedidos ? `ticket médio ${formatarReais(Math.round(r!.faturamento / r!.pedidos))}` : undefined} />
       </div>

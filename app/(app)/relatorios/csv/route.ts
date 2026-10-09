@@ -23,14 +23,14 @@ export async function GET(req: NextRequest) {
   let linhas: (string | number)[][];
   if (tipo === "clientes") {
     const r = await rankingClientes(p);
-    linhas = [["Loja", "Pedidos", "Caixas", "Faturamento (R$)", "Lucro (R$)"], ...r.map((c) => [c.nome_loja, c.pedidos, c.caixas, reais(c.faturamento), reais(c.lucro)])];
+    linhas = [["Loja", "Pedidos", "Caixas", "Faturamento (R$)", "Lucro pago (R$)"], ...r.map((c) => [c.nome_loja, c.pedidos, c.caixas, reais(c.faturamento), reais(c.lucro)])];
   } else if (tipo === "sabores") {
     const r = await rankingSabores(p);
-    linhas = [["Produto", "Linha", "Caixas", "Faturamento (R$)", "Lucro (R$)"], ...r.map((s) => [s.produto, s.linha, s.caixas, reais(s.faturamento), reais(s.lucro)])];
+    linhas = [["Produto", "Linha", "Caixas", "Faturamento (R$)", "Lucro pago (R$)"], ...r.map((s) => [s.produto, s.linha, s.caixas, reais(s.faturamento), reais(s.lucro)])];
   } else {
     const r = await vendasPorDia(p);
     linhas = [
-      ["Data", "Pedidos", "Caixas", "Faturamento (R$)", "Custo (R$)", "Lucro (R$)"],
+      ["Data", "Pedidos", "Caixas", "Faturamento (R$)", "Custo (R$)", "Lucro pago (R$)"],
       ...r.map((d) => [d.data.split("-").reverse().join("/"), d.pedidos, d.caixas, reais(d.faturamento_centavos), reais(d.custo_centavos), reais(d.lucro_centavos)]),
     ];
   }

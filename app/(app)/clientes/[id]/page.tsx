@@ -28,7 +28,7 @@ export default async function FichaCliente({ params }: PageProps<"/clientes/[id]
     }>(`select * from clientes where id = $1`, [id]),
     consultarUm<{
       pedidos: number; ultimo_pedido: string | null; frequencia_dias: number | null; ticket_medio_centavos: number | null;
-      faturado_centavos: number; lucro_centavos: number; caixas: number; dias_sem_comprar: number | null; sumido: boolean;
+      faturado_centavos: number; lucro_centavos: number; lucro_a_receber_centavos: number; caixas: number; dias_sem_comprar: number | null; sumido: boolean;
     }>(`select * from v_cliente_metricas where cliente_id = $1`, [id]),
     consultar<{ produto: string; caixas: number }>(
       `select vp.sabor || ' ' || vp.tamanho_litros || ' L' as produto, sum(i.quantidade) as caixas
@@ -86,8 +86,8 @@ export default async function FichaCliente({ params }: PageProps<"/clientes/[id]
       <div className="mb-5 grid grid-cols-2 gap-3">
         <Numero rotulo="Faturado" valor={formatarReais(m.faturado_centavos)} detalhe={`${m.pedidos} pedidos · ${m.caixas} caixas`} />
         {dono ? (
-          <Numero rotulo="Lucro" valor={formatarReais(m.lucro_centavos)} destaque
-            detalhe={m.faturado_centavos > 0 ? `margem ${((100 * m.lucro_centavos) / m.faturado_centavos).toFixed(1).replace(".", ",")}%` : undefined} />
+          <Numero rotulo="Lucro (pago)" valor={formatarReais(m.lucro_centavos)} destaque
+            detalhe={m.lucro_a_receber_centavos > 0 ? `+ ${formatarReais(m.lucro_a_receber_centavos)} a receber` : undefined} />
         ) : (
           <Numero rotulo="Caixas" valor={m.caixas} />
         )}
@@ -143,7 +143,11 @@ export default async function FichaCliente({ params }: PageProps<"/clientes/[id]
                 <div className="text-right text-sm">
                   <div className="font-semibold tabular-nums">{formatarReais(p.total_centavos)}</div>
                   <div className="text-slate-500">{p.total_caixas} cx</div>
-                  {dono && p.status !== "novo" && p.status !== "cancelado" && <div className="text-xs text-green-700">lucro {formatarReais(p.lucro_centavos)}</div>}
+                  {dono && p.status !== "novo" && p.status !== "cancelado" && (
+                    <div className={`text-xs ${p.status_pagamento === "pago" ? "text-green-700" : "text-slate-400"}`}>
+                      lucro {formatarReais(p.lucro_centavos)}{p.status_pagamento === "pago" ? "" : " a receber"}
+                    </div>
+                  )}
                 </div>
               </Link>
             ))}

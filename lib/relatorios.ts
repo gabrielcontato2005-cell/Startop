@@ -29,9 +29,10 @@ export function lerPeriodo(sp: Record<string, string | string[] | undefined>): P
 }
 
 export async function resumoPeriodo(p: Periodo) {
-  return consultarUm<{ pedidos: number; caixas: number; faturamento: number; custo: number; lucro: number; clientes: number }>(
+  return consultarUm<{ pedidos: number; caixas: number; faturamento: number; custo: number; lucro: number; lucro_a_receber: number; clientes: number }>(
     `select count(*) as pedidos, coalesce(sum(total_caixas), 0) as caixas, coalesce(sum(total_centavos), 0) as faturamento,
-            coalesce(sum(custo_total_centavos), 0) as custo, coalesce(sum(lucro_centavos), 0) as lucro,
+            coalesce(sum(custo_total_centavos), 0) as custo, coalesce(sum(lucro_recebido_centavos), 0) as lucro,
+            coalesce(sum(lucro_a_receber_centavos), 0) as lucro_a_receber,
             count(distinct cliente_id) as clientes
        from v_vendas where data_agendada between $1 and $2`,
     [p.de, p.ate],
@@ -48,7 +49,7 @@ export async function vendasPorDia(p: Periodo) {
 export async function rankingClientes(p: Periodo, limite = 500) {
   return consultar<{ cliente_id: string; nome_loja: string; pedidos: number; caixas: number; faturamento: number; lucro: number }>(
     `select v.cliente_id, c.nome_loja, count(*) as pedidos, sum(v.total_caixas) as caixas,
-            sum(v.total_centavos) as faturamento, sum(v.lucro_centavos) as lucro
+            sum(v.total_centavos) as faturamento, sum(v.lucro_recebido_centavos) as lucro
        from v_vendas v join clientes c on c.id = v.cliente_id
       where v.data_agendada between $1 and $2
       group by v.cliente_id, c.nome_loja order by faturamento desc limit $3`,
@@ -56,11 +57,14 @@ export async function rankingClientes(p: Periodo, limite = 500) {
   );
 }
 
-/** Lucro por sabor: faturamento do item menos o custo congelado (taxa de entrega e acréscimo do cartão ficam fora). */
+/**
+ * Lucro por sabor: faturamento do item menos o custo congelado (taxa de entrega e acréscimo do cartão ficam fora),
+ * só dos pedidos pagos.
+ */
 export async function rankingSabores(p: Periodo) {
   return consultar<{ produto: string; linha: string; caixas: number; faturamento: number; lucro: number }>(
     `select vp.sabor || ' ' || vp.tamanho_litros || ' L' as produto, vp.linha, sum(i.quantidade) as caixas,
-            sum(i.total_centavos) as faturamento, sum(i.total_centavos - coalesce(i.custo_total_centavos, 0)) as lucro
+            sum(i.total_centavos) as faturamento, coalesce(sum(i.total_centavos - coalesce(i.custo_total_centavos, 0)) filter (where v.status_pagamento = 'pago'), 0) as lucro
        from itens_pedido i join v_vendas v on v.id = i.pedido_id join v_produtos vp on vp.id = i.produto_id
       where v.data_agendada between $1 and $2
       group by vp.sabor, vp.tamanho_litros, vp.linha order by caixas desc`,
