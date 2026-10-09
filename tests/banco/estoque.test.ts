@@ -179,34 +179,43 @@ describe.skipIf(!URL)("estoque e pedidos no banco", () => {
     expect(p.rows[0].custo_total_centavos).toBe(String(3 * 8300));
   });
 
-  it("lucro e faturamento por cliente batem com a soma dos itens", async () => {
+  it("lucro e faturamento por cliente batem com a soma dos itens; lucro só entra pago", async () => {
     await lote(c, dono, [{ produto_id: banana, quantidade: 50 }, { produto_id: nutella, quantidade: 50 }]);
     const outro = await criarCliente(c, "Outra Loja");
-    await salvarPedido(c, atendente, cliente, [{ produto_id: banana, quantidade: 3 }], { data: "2026-09-01" });
+    const pago = await salvarPedido(c, atendente, cliente, [{ produto_id: banana, quantidade: 3 }], { data: "2026-09-01" });
     await salvarPedido(c, atendente, cliente, [{ produto_id: nutella, quantidade: 2 }], { data: "2026-09-08" });
     const cancelado = await salvarPedido(c, atendente, cliente, [{ produto_id: banana, quantidade: 9 }], { data: "2026-09-10" });
     await status(c, cancelado, "cancelado", atendente);
     await salvarPedido(c, atendente, outro, [{ produto_id: banana, quantidade: 1 }], { data: "2026-09-02" });
+    // só o primeiro pedido é pago; o segundo fica a receber
+    await c.query(`insert into public.pagamentos (pedido_id, valor_centavos, forma) values ($1, $2, 'pix')`, [pago, 3 * 9800]);
 
     const m = await c.query(
-      `select pedidos, faturado_centavos, lucro_centavos, frequencia_dias, ticket_medio_centavos from public.v_cliente_metricas where cliente_id = $1`,
+      `select pedidos, faturado_centavos, lucro_centavos, lucro_a_receber_centavos, frequencia_dias, ticket_medio_centavos
+         from public.v_cliente_metricas where cliente_id = $1`,
       [cliente],
     );
     expect(m.rows[0]).toEqual({
       pedidos: "2",
       faturado_centavos: String(3 * 9800 + 2 * 10300),
-      lucro_centavos: String(5 * 1500),
+      lucro_centavos: String(3 * 1500),
+      lucro_a_receber_centavos: String(2 * 1500),
       frequencia_dias: "7.0",
       ticket_medio_centavos: String((3 * 9800 + 2 * 10300) / 2),
     });
 
     const soma = await c.query(`
-      select sum(i.total_centavos) as faturado, sum(i.total_centavos - i.custo_total_centavos) as lucro
+      select sum(i.total_centavos) as faturado,
+             sum(i.total_centavos - i.custo_total_centavos) filter (where v.status_pagamento = 'pago') as lucro
         from public.itens_pedido i join public.v_vendas v on v.id = i.pedido_id where v.cliente_id = $1`, [cliente]);
     expect(soma.rows[0]).toEqual({ faturado: m.rows[0].faturado_centavos, lucro: m.rows[0].lucro_centavos });
 
-    const dia = await c.query(`select faturamento_centavos, lucro_centavos from public.v_resumo_diario where data = '2026-09-01'`);
-    expect(dia.rows[0]).toEqual({ faturamento_centavos: "29400", lucro_centavos: "4500" });
+    const dia = await c.query(`select data::text, faturamento_centavos, lucro_centavos, lucro_a_receber_centavos
+                                 from public.v_resumo_diario where data in ('2026-09-01', '2026-09-08') order by data`);
+    expect(dia.rows).toEqual([
+      { data: "2026-09-01", faturamento_centavos: "29400", lucro_centavos: "4500", lucro_a_receber_centavos: "0" },
+      { data: "2026-09-08", faturamento_centavos: "20600", lucro_centavos: "0", lucro_a_receber_centavos: "3000" },
+    ]);
   });
 
   it("pagamentos atualizam o status de pagamento", async () => {

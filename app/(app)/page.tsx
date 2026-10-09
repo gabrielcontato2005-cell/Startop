@@ -61,12 +61,14 @@ export default async function Inicio() {
   const [dia, mes, aReceber, sumidos, pedidos] = await Promise.all([
     consultarUm<{ pedidos: number; caixas: number; faturamento: number; lucro: number }>(
       `select count(*) as pedidos, coalesce(sum(total_caixas), 0) as caixas, coalesce(sum(total_centavos), 0) as faturamento,
-              coalesce(sum(lucro_centavos), 0) as lucro
+              coalesce(sum(lucro_recebido_centavos), 0) as lucro
          from v_vendas where data_agendada = $1`,
       [hoje],
     ),
-    consultarUm<{ faturamento: number; lucro: number; caixas: number }>(
-      `select coalesce(sum(total_centavos), 0) as faturamento, coalesce(sum(lucro_centavos), 0) as lucro, coalesce(sum(total_caixas), 0) as caixas
+    // lucro só de pedido pago; o dos pedidos ainda não pagos aparece à parte, como "a receber"
+    consultarUm<{ faturamento: number; lucro: number; lucro_a_receber: number; caixas: number }>(
+      `select coalesce(sum(total_centavos), 0) as faturamento, coalesce(sum(lucro_recebido_centavos), 0) as lucro,
+              coalesce(sum(lucro_a_receber_centavos), 0) as lucro_a_receber, coalesce(sum(total_caixas), 0) as caixas
          from v_vendas where date_trunc('month', data_agendada) = date_trunc('month', $1::date) and data_agendada <= $1`,
       [hoje],
     ),
@@ -78,13 +80,12 @@ export default async function Inicio() {
     pedidosDoDia(hoje),
   ]);
 
-  const margem = mes!.faturamento > 0 ? ((100 * mes!.lucro) / mes!.faturamento).toFixed(1).replace(".", ",") : "0";
 
   return (
     <Pagina titulo={`Olá, ${primeiroNome}`}>
       <div className="mb-5 grid grid-cols-2 gap-3">
         <Numero rotulo="Vendas de hoje" valor={formatarReais(dia!.faturamento)} detalhe={`${dia!.pedidos} pedidos · ${dia!.caixas} cx`} />
-        <Numero rotulo="Lucro do mês" valor={formatarReais(mes!.lucro)} detalhe={`margem ${margem}% · ${mes!.caixas} cx`} destaque />
+        <Numero rotulo="Lucro do mês" valor={formatarReais(mes!.lucro)} detalhe={`pago · + ${formatarReais(mes!.lucro_a_receber)} a receber`} destaque />
         <Link href="/pedidos?filtro=a_receber">
           <Numero rotulo="A receber" valor={formatarReais(aReceber!.valor)} detalhe={`${aReceber!.pedidos} entregues sem pagar`} />
         </Link>

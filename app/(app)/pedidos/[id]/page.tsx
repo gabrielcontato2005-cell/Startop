@@ -177,8 +177,10 @@ export default async function DetalhePedido({ params }: PageProps<"/pedidos/[id]
             {p.acrescimo_cartao_centavos > 0 && <div className="flex justify-between"><span>Acréscimo do cartão</span><span>{formatarReais(p.acrescimo_cartao_centavos)}</span></div>}
             <div className="flex justify-between text-base font-bold"><span>Total ({nomeFormaPagamento(p.forma_pagamento)})</span><span>{formatarReais(p.total_centavos)}</span></div>
             {dono && vendido && !p.a_preco_de_custo && (
-              <div className="flex justify-between text-green-700">
-                <span>Lucro (custo {formatarReais(p.custo_total_centavos)})</span>
+              <div className={`flex justify-between ${p.status_pagamento === "pago" ? "text-green-700" : "text-slate-500"}`}>
+                <span>
+                  {p.status_pagamento === "pago" ? "Lucro" : "Lucro a receber (entra quando pagar)"} (custo {formatarReais(p.custo_total_centavos)})
+                </span>
                 <span className="font-semibold">{formatarReais(p.lucro_centavos)}</span>
               </div>
             )}
