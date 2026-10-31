@@ -3,6 +3,7 @@ import { BotaoEnviar, Formulario } from "@/components/formulario";
 import { BotaoLink, Campo, Cartao, Etiqueta, Pagina, Secao, Selecao } from "@/components/ui";
 import { lerCatalogoComCusto, lerLinhas, type ProdutoComCusto } from "@/lib/dados";
 import { formatarReais } from "@/lib/regras/dinheiro";
+import { grupoDoProduto } from "@/lib/regras/produto";
 import { exigirDono } from "@/lib/sessao";
 import { novoSabor, precoDaLinha } from "./acoes";
 
@@ -26,7 +27,7 @@ export default async function Produtos() {
         const [linhaId, tamanho] = chave.split("|");
         const ref = lista[0];
         return (
-          <Secao key={chave} titulo={`${ref.linha} · ${tamanho} L`}>
+          <Secao key={chave} titulo={grupoDoProduto(ref)}>
             <Cartao className="divide-y divide-slate-100 p-0">
               {lista.map((p) => (
                 <Link key={p.id} href={`/produtos/${p.id}`} className="flex items-center justify-between gap-2 px-4 py-2.5 active:bg-slate-50">
@@ -47,7 +48,7 @@ export default async function Produtos() {
                   </span>
                 </Link>
               ))}
-              <details className="px-4 py-3">
+              {ref.tamanho_litros != null && <details className="px-4 py-3">
                 <summary className="cursor-pointer text-sm font-medium text-roxo">Mudar preço de todos os {ref.linha.toLowerCase()} {tamanho} L</summary>
                 <Formulario acao={precoDaLinha} className="mt-3 space-y-3">
                   <input type="hidden" name="linha_id" value={linhaId} />
@@ -61,7 +62,7 @@ export default async function Produtos() {
                     placeholder="igual ao preço" dica="Preço da venda avulsa. Vazio = o mesmo preço de venda" />
                   <BotaoEnviar className="w-full">Aplicar em {lista.length} sabores</BotaoEnviar>
                 </Formulario>
-              </details>
+              </details>}
             </Cartao>
           </Secao>
         );
@@ -75,7 +76,7 @@ export default async function Produtos() {
                 <option key={l.id} value={l.id}>{l.nome}</option>
               ))}
             </Selecao>
-            <Campo rotulo="Nome do sabor" name="nome" required />
+            <Campo rotulo="Nome do sabor ou produto" name="nome" required dica="Em Leite em pó, Colheres e outros produtos sem litros, o tamanho é ignorado" />
             <div className="flex gap-4 text-sm">
               <label className="flex items-center gap-2"><input type="checkbox" name="tamanho" value="5" className="h-5 w-5" /> 5 L</label>
               <label className="flex items-center gap-2"><input type="checkbox" name="tamanho" value="10" defaultChecked className="h-5 w-5" /> 10 L</label>

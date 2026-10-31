@@ -25,7 +25,7 @@ export default async function Movimentacoes({ searchParams }: PageProps<"/estoqu
   const [movs, produtos] = await Promise.all([
     consultar<{ id: number; tipo: string; delta_fisico: number; delta_reservado: number; motivo: string | null; criado_em: string; produto: string; usuario: string | null; pedido_id: string | null; numero: number | null }>(
       `select m.id, m.tipo, m.delta_fisico, m.delta_reservado, m.motivo, m.criado_em,
-              vp.sabor || ' ' || vp.tamanho_litros || ' L' as produto, u.nome as usuario, m.pedido_id, p.numero
+              vp.nome as produto, u.nome as usuario, m.pedido_id, p.numero
          from movimentacoes_estoque m
          join v_produtos vp on vp.id = m.produto_id
          left join usuarios u on u.id = m.usuario_id
@@ -44,7 +44,7 @@ export default async function Movimentacoes({ searchParams }: PageProps<"/estoqu
         <select name="produto" defaultValue={produto} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3" aria-label="Produto">
           <option value="">Todos os produtos</option>
           {produtos.map((p) => (
-            <option key={p.id} value={p.id}>{p.linha} · {p.sabor} {p.tamanho_litros} L</option>
+            <option key={p.id} value={p.id}>{p.linha} · {p.nome}</option>
           ))}
         </select>
         <button className="mt-2 text-sm font-medium text-roxo">Filtrar</button>

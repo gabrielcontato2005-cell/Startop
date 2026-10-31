@@ -218,6 +218,26 @@ describe.skipIf(!URL)("estoque e pedidos no banco", () => {
     ]);
   });
 
+  it("outros produtos: leite em pó e colheres no catálogo, sem tamanho, com estoque e lucro como as caixas", async () => {
+    const cat = await c.query(`
+      select vp.linha, vp.categoria, vp.nome, vp.tamanho_litros, vp.preco_centavos, vp.custo_unitario_centavos, vp.ativo
+        from public.v_produtos vp where vp.categoria = 'outros' order by vp.linha_ordem, vp.sabor`);
+    expect(cat.rows).toEqual([
+      { linha: "Leite em pó", categoria: "outros", nome: "Leite em pó Leitino", tamanho_litros: null, preco_centavos: "2250", custo_unitario_centavos: "0", ativo: true },
+      { linha: "Leite em pó", categoria: "outros", nome: "Leite em pó Leitino fardo 10 un", tamanho_litros: null, preco_centavos: "22500", custo_unitario_centavos: "0", ativo: true },
+      { linha: "Colheres", categoria: "outros", nome: "Colher longa (100 un)", tamanho_litros: null, preco_centavos: "1799", custo_unitario_centavos: "1299", ativo: true },
+      { linha: "Colheres", categoria: "outros", nome: "Colher sobremesa (100 un)", tamanho_litros: null, preco_centavos: "1250", custo_unitario_centavos: "750", ativo: true },
+      { linha: "Colheres", categoria: "outros", nome: "Colher super longa (100 un)", tamanho_litros: null, preco_centavos: "2179", custo_unitario_centavos: "1679", ativo: true },
+    ]);
+
+    const colher = (await c.query(`select id from public.v_produtos where nome = 'Colher longa (100 un)'`)).rows[0].id;
+    await lote(c, dono, [{ produto_id: colher, quantidade: 10 }]);
+    const pedido = await salvarPedido(c, atendente, cliente, [{ produto_id: colher, quantidade: 3 }]);
+    expect(await saldo(c, colher)).toMatchObject({ fisico: 10, reservado: 3, disponivel: 7 });
+    const p = await c.query(`select total_centavos, lucro_centavos from public.pedidos where id = $1`, [pedido]);
+    expect(p.rows[0]).toEqual({ total_centavos: String(3 * 1799), lucro_centavos: String(3 * 500) });
+  });
+
   it("pagamentos atualizam o status de pagamento", async () => {
     await lote(c, dono, [{ produto_id: banana, quantidade: 10 }]);
     const pedido = await salvarPedido(c, atendente, cliente, [{ produto_id: banana, quantidade: 2 }]);

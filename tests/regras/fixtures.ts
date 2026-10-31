@@ -3,6 +3,7 @@ import type { ConfigPedido, ProdutoPreco, RegraDesconto } from "@/lib/regras/ped
 export const TRAD = "linha-trad";
 export const MESC = "linha-mesc";
 export const SORV = "linha-sorv";
+export const COLHERES = "linha-colheres";
 
 export const produtos = new Map<string, ProdutoPreco>(
   [
@@ -11,6 +12,7 @@ export const produtos = new Map<string, ProdutoPreco>(
     { id: "banana5", linha_id: TRAD, tamanho_litros: 5, preco_centavos: 5500 },
     { id: "nutella10", linha_id: MESC, tamanho_litros: 10, preco_centavos: 10300 },
     { id: "flocos10", linha_id: SORV, tamanho_litros: 10, preco_centavos: 7000 },
+    { id: "colher100", linha_id: COLHERES, tamanho_litros: null, preco_centavos: 1799, categoria: "outros" },
   ].map((p) => [p.id, p]),
 );
 

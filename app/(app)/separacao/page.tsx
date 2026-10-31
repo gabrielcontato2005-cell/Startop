@@ -15,17 +15,17 @@ export default async function Separacao({ searchParams }: PageProps<"/separacao"
 
   const [soma, pedidos] = await Promise.all([
     consultar<{ linha: string; produto: string; caixas: number; disponivel_fisico: number }>(
-      `select vp.linha, vp.sabor || ' ' || vp.tamanho_litros || ' L' as produto, sum(i.quantidade) as caixas, e.fisico as disponivel_fisico
+      `select vp.linha, vp.nome as produto, sum(i.quantidade) as caixas, e.fisico as disponivel_fisico
          from itens_pedido i join pedidos p on p.id = i.pedido_id join v_produtos vp on vp.id = i.produto_id
          join estoque e on e.produto_id = i.produto_id
         where p.data_agendada = $1 and p.status = 'confirmado'
-        group by vp.linha, vp.linha_ordem, vp.sabor, vp.tamanho_litros, e.fisico
+        group by vp.linha, vp.linha_ordem, vp.sabor, vp.tamanho_litros, vp.nome, e.fisico
         order by vp.linha_ordem, vp.tamanho_litros desc, vp.sabor`,
       [data],
     ),
     consultar<{ id: string; numero: number; nome_loja: string; tipo: string; hora: string | null; itens: string }>(
       `select p.id, p.numero, ${NOME_CLIENTE_SQL} as nome_loja, p.tipo, to_char(p.hora_agendada, 'HH24:MI') as hora,
-              string_agg(i.quantidade || '× ' || vp.sabor || ' ' || vp.tamanho_litros || 'L', ', ' order by vp.linha_ordem, vp.sabor) as itens
+              string_agg(i.quantidade || '× ' || vp.nome, ', ' order by vp.linha_ordem, vp.sabor) as itens
          from pedidos p join clientes c on c.id = p.cliente_id
          join itens_pedido i on i.pedido_id = p.id join v_produtos vp on vp.id = i.produto_id
         where p.data_agendada = $1 and p.status = 'confirmado'
