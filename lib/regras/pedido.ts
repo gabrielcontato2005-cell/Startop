@@ -5,8 +5,10 @@ import { dentroDoHorario } from "./horario";
 export type ProdutoPreco = {
   id: string;
   linha_id: string;
-  tamanho_litros: number;
+  tamanho_litros: number | null;
   preco_centavos: number;
+  /** "outros" (leite em pó, colheres...) não conta como caixa no pedido mínimo */
+  categoria?: string;
 };
 
 export type RegraDesconto = {
@@ -133,7 +135,8 @@ export function calcularPedido(
     };
   });
 
-  const total_caixas = itens.reduce((s, i) => s + i.quantidade, 0);
+  // só caixas de açaí e sorvete; outros produtos não contam para o pedido mínimo
+  const total_caixas = itens.reduce((s, i) => s + (produtos.get(i.produto_id)!.categoria === "outros" ? 0 : i.quantidade), 0);
   const subtotal_centavos = itens.reduce((s, i) => s + i.preco_unitario_centavos * i.quantidade, 0);
   const desconto_centavos = itens.reduce((s, i) => s + i.desconto_centavos, 0);
 

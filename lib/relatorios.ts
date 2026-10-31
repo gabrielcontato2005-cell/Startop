@@ -63,11 +63,11 @@ export async function rankingClientes(p: Periodo, limite = 500) {
  */
 export async function rankingSabores(p: Periodo) {
   return consultar<{ produto: string; linha: string; caixas: number; faturamento: number; lucro: number }>(
-    `select vp.sabor || ' ' || vp.tamanho_litros || ' L' as produto, vp.linha, sum(i.quantidade) as caixas,
+    `select vp.nome as produto, vp.linha, sum(i.quantidade) as caixas,
             sum(i.total_centavos) as faturamento, coalesce(sum(i.total_centavos - coalesce(i.custo_total_centavos, 0)) filter (where v.status_pagamento = 'pago'), 0) as lucro
        from itens_pedido i join v_vendas v on v.id = i.pedido_id join v_produtos vp on vp.id = i.produto_id
       where v.data_agendada between $1 and $2
-      group by vp.sabor, vp.tamanho_litros, vp.linha order by caixas desc`,
+      group by vp.sabor, vp.tamanho_litros, vp.nome, vp.linha order by caixas desc`,
     [p.de, p.ate],
   );
 }

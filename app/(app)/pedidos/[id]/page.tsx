@@ -48,7 +48,7 @@ export default async function DetalhePedido({ params }: PageProps<"/pedidos/[id]
       [id],
     ),
     consultar<{ produto_id: string; descricao: string; linha: string; quantidade: number; preco_unitario_centavos: number; desconto_centavos: number; total_centavos: number; custo_total_centavos: number | null }>(
-      `select i.produto_id, vp.sabor || ' ' || vp.tamanho_litros || ' L' as descricao, vp.linha, i.quantidade, i.preco_unitario_centavos,
+      `select i.produto_id, vp.nome as descricao, vp.linha, i.quantidade, i.preco_unitario_centavos,
               i.desconto_centavos, i.total_centavos, i.custo_total_centavos
          from itens_pedido i join v_produtos vp on vp.id = i.produto_id
         where i.pedido_id = $1 order by vp.linha_ordem, vp.tamanho_litros desc, vp.sabor`,

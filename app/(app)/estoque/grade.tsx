@@ -6,9 +6,10 @@ import type { EstadoAcao } from "@/components/formulario";
 import { Aviso, Botao, Campo, Cartao, Secao } from "@/components/ui";
 import { formatarReais } from "@/lib/regras/dinheiro";
 import { hojeSP } from "@/lib/regras/horario";
+import { grupoDoProduto } from "@/lib/regras/produto";
 import { registrarContagem, registrarLote } from "./acoes";
 
-export type ProdutoGrade = { id: string; sabor: string; linha: string; tamanho_litros: number; fisico: number; custo_centavos: number };
+export type ProdutoGrade = { id: string; sabor: string; linha: string; tamanho_litros: number | null; fisico: number; custo_centavos: number };
 
 /**
  * Grade com todos os sabores. Modo "lote": digita quantas caixas chegaram (e o custo, se mudou).
@@ -26,7 +27,7 @@ export default function Grade({ produtos, modo }: { produtos: ProdutoGrade[]; mo
 
   const grupos = useMemo(() => {
     const g = new Map<string, ProdutoGrade[]>();
-    for (const p of produtos) g.set(`${p.linha} · ${p.tamanho_litros} L`, [...(g.get(`${p.linha} · ${p.tamanho_litros} L`) ?? []), p]);
+    for (const p of produtos) g.set(grupoDoProduto(p), [...(g.get(grupoDoProduto(p)) ?? []), p]);
     return [...g];
   }, [produtos]);
 

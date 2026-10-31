@@ -46,7 +46,7 @@ export default async function NotaPedido({ params, searchParams }: PageProps<"/n
       [id],
     ),
     consultar<Item>(
-      `select case when vp.linha like 'Açaí mesclado%' then 'Mesclado ' else '' end || vp.sabor || ' ' || vp.tamanho_litros || ' L' as descricao,
+      `select case when vp.linha like 'Açaí mesclado%' then 'Mesclado ' else '' end || vp.nome as descricao,
               i.quantidade, i.preco_unitario_centavos, i.total_centavos
          from itens_pedido i join v_produtos vp on vp.id = i.produto_id
         where i.pedido_id = $1 order by vp.linha_ordem, vp.tamanho_litros desc, vp.sabor`,

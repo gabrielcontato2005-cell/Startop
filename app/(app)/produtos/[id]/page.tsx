@@ -5,6 +5,7 @@ import { ehUuid } from "@/lib/dados";
 import { consultar, consultarUm } from "@/lib/db";
 import { formatarReais } from "@/lib/regras/dinheiro";
 import { formatarDataHora } from "@/lib/regras/horario";
+import { nomeDoProduto } from "@/lib/regras/produto";
 import { exigirDono } from "@/lib/sessao";
 import { salvarProduto } from "../acoes";
 
@@ -17,7 +18,7 @@ export default async function EditarProduto({ params }: PageProps<"/produtos/[id
   const { id } = await params;
   if (!ehUuid(id)) notFound();
   const [p, historico] = await Promise.all([
-    consultarUm<{ sabor: string; linha: string; tamanho_litros: number; preco_centavos: number; preco_consumidor_centavos: number | null; custo_medio_centavos: number; custo_adicional_centavos: number; ativo: boolean }>(
+    consultarUm<{ sabor: string; linha: string; tamanho_litros: number | null; preco_centavos: number; preco_consumidor_centavos: number | null; custo_medio_centavos: number; custo_adicional_centavos: number; ativo: boolean }>(
       `select vp.sabor, vp.linha, vp.tamanho_litros, vp.preco_centavos, vp.preco_consumidor_centavos, vp.custo_medio_centavos, vp.custo_adicional_centavos,
               p.ativo
          from v_produtos vp join produtos p on p.id = vp.id where vp.id = $1`, [id]),
@@ -29,7 +30,7 @@ export default async function EditarProduto({ params }: PageProps<"/produtos/[id
   if (!p) notFound();
 
   return (
-    <Pagina titulo={`${p.sabor} ${p.tamanho_litros} L`} voltar="/produtos">
+    <Pagina titulo={nomeDoProduto(p)} voltar="/produtos">
       <p className="-mt-2 mb-4 text-sm text-slate-500">{p.linha}</p>
       <Cartao>
         <Formulario acao={salvarProduto}>

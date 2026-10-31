@@ -79,7 +79,11 @@ export async function novoSabor(_: EstadoAcao, dados: FormData): Promise<EstadoA
   const linha = txt(dados, "linha_id");
   const nome = txt(dados, "nome");
   if (!ehUuid(linha) || !nome) return { erro: "Escolha a linha e escreva o nome do sabor." };
-  const tamanhos = dados.getAll("tamanho").map(Number).filter((t) => t === 5 || t === 10);
+  const categoria = (await consultarUm<{ categoria: string }>(`select categoria from linhas where id = $1`, [linha]))?.categoria;
+  if (!categoria) return { erro: "Linha não encontrada." };
+  // outros produtos (leite em pó, colheres...) não têm tamanho em litros: um produto só
+  const tamanhos: (number | null)[] =
+    categoria === "outros" ? [null] : dados.getAll("tamanho").map(Number).filter((t) => t === 5 || t === 10);
   if (tamanhos.length === 0) return { erro: "Marque pelo menos um tamanho." };
 
   try {
@@ -94,7 +98,7 @@ export async function novoSabor(_: EstadoAcao, dados: FormData): Promise<EstadoA
                 from s cross join unnest($3::int[]) as t(tamanho)
                 left join lateral (
                   select p.* from produtos p join sabores so on so.id = p.sabor_id
-                   where so.linha_id = $1 and p.tamanho_litros = t.tamanho order by p.criado_em limit 1) ref on true
+                   where so.linha_id = $1 and p.tamanho_litros is not distinct from t.tamanho order by p.criado_em limit 1) ref on true
               returning 1)
        select count(*)::int as criados from p`,
       [linha, nome, tamanhos, u.id],

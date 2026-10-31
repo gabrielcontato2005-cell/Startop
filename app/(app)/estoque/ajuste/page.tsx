@@ -17,7 +17,7 @@ export default async function Ajuste() {
             <option value="" disabled>Escolha…</option>
             {produtos.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.linha} · {p.sabor} {p.tamanho_litros} L (tem {p.fisico})
+                {p.linha} · {p.nome} (tem {p.fisico})
               </option>
             ))}
           </Selecao>

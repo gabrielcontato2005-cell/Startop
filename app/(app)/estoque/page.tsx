@@ -1,6 +1,7 @@
 import { Abas, BotaoLink, Cartao, Numero, Pagina, Secao } from "@/components/ui";
 import { lerCatalogo, lerLinhas, type ProdutoCatalogo } from "@/lib/dados";
 import { consultar } from "@/lib/db";
+import { grupoDoProduto } from "@/lib/regras/produto";
 import { exigirEquipe } from "@/lib/sessao";
 
 export const metadata = { title: "Estoque" };
@@ -29,10 +30,11 @@ export default async function Estoque({ searchParams }: PageProps<"/estoque">) {
 
   const grupos = new Map<string, ProdutoCatalogo[]>();
   for (const p of visiveis) {
-    const chave = `${p.linha} · ${p.tamanho_litros} L`;
+    const chave = grupoDoProduto(p);
     grupos.set(chave, [...(grupos.get(chave) ?? []), p]);
   }
-  const soma = (f: (p: ProdutoCatalogo) => number) => produtos.reduce((s, p) => s + f(p), 0);
+  // os números de cima são caixas de açaí e sorvete; leite em pó, colheres etc. ficam só na lista
+  const soma = (f: (p: ProdutoCatalogo) => number) => produtos.filter((p) => p.categoria !== "outros").reduce((s, p) => s + f(p), 0);
   const emRota = soma((p) => de(p.id).em_rota);
   const naCamara = soma((p) => p.fisico) - emRota;
 

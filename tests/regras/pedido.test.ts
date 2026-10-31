@@ -128,6 +128,20 @@ describe("entrega, taxa e pedido mínimo no pedido", () => {
   });
 });
 
+describe("outros produtos (leite em pó, colheres)", () => {
+  it("entram no total mas não contam como caixa no pedido mínimo", () => {
+    const p = calc({
+      tipo: "entrega",
+      distancia_km: 15,
+      itens: [{ produto_id: "banana10", quantidade: 2 }, { produto_id: "colher100", quantidade: 4 }],
+    });
+    expect(p.total_caixas).toBe(2);
+    expect(p.pedido_minimo).toBe(3);
+    expect(p.abaixo_do_minimo).toBe(true);
+    expect(p.subtotal_centavos).toBe(2 * 9800 + 4 * 1799);
+  });
+});
+
 describe("acréscimo do cartão (10%)", () => {
   it("sobre produtos com desconto mais a taxa, arredondado ao centavo", () => {
     const p = calc({

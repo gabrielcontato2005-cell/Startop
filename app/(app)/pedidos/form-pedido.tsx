@@ -48,16 +48,16 @@ export default function FormPedido({ clientes, produtos, regras, config, custos,
   const [busca, setBusca] = useState("");
   const [qtd, setQtd] = useState<Record<string, number>>(() => Object.fromEntries((inicial?.itens ?? []).map((i) => [i.produto_id, i.quantidade])));
   const linhas = useMemo(() => {
-    const m = new Map<string, { id: string; nome: string; tamanhos: number[] }>();
+    const m = new Map<string, { id: string; nome: string; tamanhos: (number | null)[] }>();
     for (const p of produtos) {
       const l = m.get(p.linha_id) ?? { id: p.linha_id, nome: p.linha, tamanhos: [] };
       if (!l.tamanhos.includes(p.tamanho_litros)) l.tamanhos.push(p.tamanho_litros);
       m.set(p.linha_id, l);
     }
-    return [...m.values()].map((l) => ({ ...l, tamanhos: l.tamanhos.sort((a, b) => b - a) }));
+    return [...m.values()].map((l) => ({ ...l, tamanhos: l.tamanhos.sort((a, b) => (b ?? 0) - (a ?? 0)) }));
   }, [produtos]);
   const [linhaAtiva, setLinhaAtiva] = useState(linhas[0]?.id ?? "");
-  const [tamanho, setTamanho] = useState<Record<string, number>>({});
+  const [tamanho, setTamanho] = useState<Record<string, number | null>>({});
   const ehAvulso = (id: string | undefined) => !!id && !!clientes.find((c) => c.id === id)?.consumidor_final;
   // a venda avulsa costuma ser no balcão: começa como retirada
   const [tipo, setTipo] = useState<TipoPedido>(inicial?.tipo ?? (ehAvulso(clienteInicial) ? "retirada" : "entrega"));
@@ -217,7 +217,7 @@ export default function FormPedido({ clientes, produtos, regras, config, custos,
   const tamanhoAtivo = tamanho[linha.id] ?? linha.tamanhos[0];
   const daLinha = produtos.filter((p) => p.linha_id === linha.id && p.tamanho_litros === tamanhoAtivo);
   const habituais = (habitos?.habituais ?? []).map((id) => mapaProdutos.get(id)).filter((p): p is ProdutoCatalogo => !!p);
-  const nome = (p: ProdutoCatalogo) => `${p.sabor} ${p.tamanho_litros} L`;
+  const nome = (p: ProdutoCatalogo) => p.nome;
 
   return (
     <div className="pb-40">
@@ -301,7 +301,7 @@ export default function FormPedido({ clientes, produtos, regras, config, custos,
         <div className="mb-2 flex gap-1 rounded-xl bg-slate-200/70 p-1">
           {linha.tamanhos.map((t) => (
             <button
-              key={t}
+              key={t ?? "-"}
               type="button"
               onClick={() => setTamanho({ ...tamanho, [linha.id]: t })}
               className={`flex-1 rounded-lg py-2 font-semibold ${t === tamanhoAtivo ? "bg-white text-roxo shadow-sm" : "text-slate-600"}`}

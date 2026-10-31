@@ -21,14 +21,19 @@ export async function lerConfig(): Promise<Config> {
   return c!;
 }
 
+export type Categoria = "acai" | "sorvete" | "outros";
+
 export type ProdutoCatalogo = {
   id: string;
   sabor: string;
+  /** "Banana 10 L"; nos outros produtos (sem tamanho), só o nome */
+  nome: string;
   linha: string;
   linha_id: string;
-  categoria: "acai" | "sorvete";
+  categoria: Categoria;
   linha_ordem: number;
-  tamanho_litros: number;
+  /** null nos outros produtos (leite em pó, colheres...) */
+  tamanho_litros: number | null;
   preco_centavos: number;
   /** preço da venda avulsa para consumidor final; null = o mesmo preço de venda */
   preco_consumidor_centavos: number | null;
@@ -42,7 +47,7 @@ export type ProdutoCatalogo = {
 /** Catálogo com saldo de estoque, sem custo (serve para qualquer perfil). */
 export async function lerCatalogo(somenteAtivos = true): Promise<ProdutoCatalogo[]> {
   return consultar<ProdutoCatalogo>(`
-    select vp.id, vp.sabor, vp.linha, vp.linha_id, vp.categoria, vp.linha_ordem, vp.tamanho_litros, vp.preco_centavos, vp.preco_consumidor_centavos,
+    select vp.id, vp.sabor, vp.nome, vp.linha, vp.linha_id, vp.categoria, vp.linha_ordem, vp.tamanho_litros, vp.preco_centavos, vp.preco_consumidor_centavos,
            e.fisico - e.reservado as disponivel, e.fisico, e.reservado, vp.estoque_minimo, vp.ativo
       from v_produtos vp join estoque e on e.produto_id = vp.id
      where $1::boolean is false or vp.ativo
@@ -72,7 +77,7 @@ export async function lerRegras(): Promise<(RegraDesconto & { id: string; nome: 
 }
 
 export async function lerLinhas() {
-  return consultar<{ id: string; nome: string; categoria: "acai" | "sorvete"; ordem: number; ativo: boolean }>(
+  return consultar<{ id: string; nome: string; categoria: Categoria; ordem: number; ativo: boolean }>(
     `select id, nome, categoria, ordem, ativo from linhas order by ordem`,
   );
 }

@@ -31,7 +31,7 @@ export default async function FichaCliente({ params }: PageProps<"/clientes/[id]
       faturado_centavos: number; lucro_centavos: number; lucro_a_receber_centavos: number; caixas: number; dias_sem_comprar: number | null; sumido: boolean;
     }>(`select * from v_cliente_metricas where cliente_id = $1`, [id]),
     consultar<{ produto: string; caixas: number }>(
-      `select vp.sabor || ' ' || vp.tamanho_litros || ' L' as produto, sum(i.quantidade) as caixas
+      `select vp.nome as produto, sum(i.quantidade) as caixas
          from itens_pedido i join v_vendas v on v.id = i.pedido_id join v_produtos vp on vp.id = i.produto_id
         where v.cliente_id = $1 group by 1 order by 2 desc limit 6`,
       [id],
