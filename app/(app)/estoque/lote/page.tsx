@@ -12,7 +12,7 @@ export default async function PaginaLote() {
     <Pagina titulo="Chegou mercadoria" voltar="/estoque">
       <Grade
         modo="lote"
-        produtos={produtos.map((p) => ({ id: p.id, sabor: p.sabor, linha: p.linha, tamanho_litros: p.tamanho_litros, fisico: p.fisico, custo_centavos: p.custo_medio_centavos }))}
+        produtos={produtos.map((p) => ({ id: p.id, sabor: p.sabor, linha: p.linha, tamanho_litros: p.tamanho_litros, disponivel: p.disponivel, custo_centavos: p.custo_medio_centavos }))}
       />
     </Pagina>
   );

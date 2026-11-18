@@ -9,8 +9,8 @@ export const metadata = { title: "Movimentações" };
 
 const TIPOS: Record<string, string> = {
   entrada_lote: "Entrada de lote",
-  reserva: "Reserva",
-  liberacao_reserva: "Reserva liberada",
+  reserva: "Venda",
+  liberacao_reserva: "Voltou de pedido",
   saida_pedido: "Saída por pedido",
   devolucao: "Devolução",
   ajuste: "Ajuste",
@@ -31,6 +31,8 @@ export default async function Movimentacoes({ searchParams }: PageProps<"/estoqu
          left join usuarios u on u.id = m.usuario_id
          left join pedidos p on p.id = m.pedido_id
         where ($1 = '' or m.tipo = $1) and ($2 = '' or m.produto_id::text = $2)
+          -- só o que mudou o disponível para venda (a entrega de um pedido já reservado não muda)
+          and m.delta_fisico - m.delta_reservado <> 0
         order by m.id desc limit 300`,
       [tipo, produto],
     ),
@@ -68,8 +70,10 @@ export default async function Movimentacoes({ searchParams }: PageProps<"/estoqu
                 </div>
               </div>
               <div className="shrink-0 text-right tabular-nums">
-                {m.delta_fisico !== 0 && <div className={m.delta_fisico > 0 ? "text-green-700" : "text-red-700"}>{m.delta_fisico > 0 ? "+" : ""}{m.delta_fisico} físico</div>}
-                {m.delta_reservado !== 0 && <div className="text-slate-500">{m.delta_reservado > 0 ? "+" : ""}{m.delta_reservado} reserv.</div>}
+                {(() => {
+                  const d = m.delta_fisico - m.delta_reservado;
+                  return <div className={`font-semibold ${d > 0 ? "text-green-700" : "text-red-700"}`}>{d > 0 ? "+" : ""}{d}</div>;
+                })()}
               </div>
             </div>
           ))}

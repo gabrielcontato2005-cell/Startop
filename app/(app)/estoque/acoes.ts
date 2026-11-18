@@ -48,10 +48,15 @@ export async function registrarContagem(itens: ItemGrade[]): Promise<EstadoAcao>
   if (!limpos) return { erro: "Confira as quantidades." };
   if (limpos.length === 0) return { erro: "Digite a contagem de pelo menos um sabor." };
   try {
-    const r = await consultarUm<{ n: number }>(`select contar_estoque($1, $2) as n`, [
-      JSON.stringify(limpos.map((i) => ({ produto_id: i.produto_id, quantidade: i.quantidade }))),
-      u.id,
-    ]);
+    // a pessoa conta o disponível; o banco guarda o físico, que é o disponível mais o que está preso em pedidos
+    const r = await consultarUm<{ n: number }>(
+      `select contar_estoque(
+                (select jsonb_agg(jsonb_build_object('produto_id', x.produto_id, 'quantidade', x.quantidade + e.reservado))
+                   from jsonb_to_recordset($1::jsonb) as x(produto_id uuid, quantidade int)
+                   join estoque e on e.produto_id = x.produto_id),
+                $2) as n`,
+      [JSON.stringify(limpos.map((i) => ({ produto_id: i.produto_id, quantidade: i.quantidade }))), u.id],
+    );
     revalidatePath("/estoque");
     return { ok: r!.n === 0 ? "Contagem bateu com o sistema. Nada mudou." : `Contagem salva: ${r!.n} produto${r!.n === 1 ? "" : "s"} ajustado${r!.n === 1 ? "" : "s"}.` };
   } catch (e) {

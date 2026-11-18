@@ -55,7 +55,7 @@ export function Cancelar({ id, entregue }: { id: string; entregue: boolean }) {
       <input type="hidden" name="status" value="cancelado" />
       {estado?.erro && <Aviso tipo="erro">{estado.erro}</Aviso>}
       <p className="text-sm text-red-900">
-        {entregue ? "As caixas voltam para o estoque físico." : "As caixas reservadas voltam para o estoque."}
+        {entregue ? "As caixas voltam para o estoque." : "As caixas reservadas voltam para o estoque."}
       </p>
       <input name="motivo" required placeholder="Motivo" className={classeCampo} />
       <Enviar estilo="perigo">Confirmar cancelamento</Enviar>

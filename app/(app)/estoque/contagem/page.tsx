@@ -12,7 +12,7 @@ export default async function PaginaContagem() {
     <Pagina titulo="Contagem de estoque" voltar="/estoque">
       <Grade
         modo="contagem"
-        produtos={produtos.map((p) => ({ id: p.id, sabor: p.sabor, linha: p.linha, tamanho_litros: p.tamanho_litros, fisico: p.fisico, custo_centavos: p.custo_medio_centavos }))}
+        produtos={produtos.map((p) => ({ id: p.id, sabor: p.sabor, linha: p.linha, tamanho_litros: p.tamanho_litros, disponivel: p.disponivel, custo_centavos: p.custo_medio_centavos }))}
       />
     </Pagina>
   );
