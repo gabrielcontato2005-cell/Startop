@@ -25,7 +25,7 @@ export default async function Mais() {
         ...(dono
           ? [
               { href: "/estoque/lote", nome: "Chegou mercadoria", desc: "Entrada de lote da fábrica" },
-              { href: "/estoque/contagem", nome: "Contagem de estoque", desc: "Digitar o que tem na câmara fria" },
+              { href: "/estoque/contagem", nome: "Contagem de estoque", desc: "Digitar o que tem disponível para venda" },
             ]
           : []),
       ],

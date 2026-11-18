@@ -9,11 +9,11 @@ import { hojeSP } from "@/lib/regras/horario";
 import { grupoDoProduto } from "@/lib/regras/produto";
 import { registrarContagem, registrarLote } from "./acoes";
 
-export type ProdutoGrade = { id: string; sabor: string; linha: string; tamanho_litros: number | null; fisico: number; custo_centavos: number };
+export type ProdutoGrade = { id: string; sabor: string; linha: string; tamanho_litros: number | null; disponivel: number; custo_centavos: number };
 
 /**
  * Grade com todos os sabores. Modo "lote": digita quantas caixas chegaram (e o custo, se mudou).
- * Modo "contagem": digita quanto existe na câmara fria e o sistema ajusta a diferença.
+ * Modo "contagem": digita quanto tem disponível para venda e o sistema ajusta a diferença.
  */
 export default function Grade({ produtos, modo }: { produtos: ProdutoGrade[]; modo: "lote" | "contagem" }) {
   const [qtd, setQtd] = useState<Record<string, string>>({});
@@ -33,7 +33,7 @@ export default function Grade({ produtos, modo }: { produtos: ProdutoGrade[]; mo
 
   const preenchidos = produtos.filter((p) => (qtd[p.id] ?? "").trim() !== "");
   const totalCaixas = preenchidos.reduce((s, p) => s + (Number(qtd[p.id]) || 0), 0);
-  const diferencas = preenchidos.filter((p) => Number(qtd[p.id]) !== p.fisico).length;
+  const diferencas = preenchidos.filter((p) => Number(qtd[p.id]) !== p.disponivel).length;
 
   function enviar() {
     const itens = preenchidos.map((p) => ({ produto_id: p.id, quantidade: Number(qtd[p.id]), custo: custo[p.id] }));
@@ -66,7 +66,7 @@ export default function Grade({ produtos, modo }: { produtos: ProdutoGrade[]; mo
         </Cartao>
       ) : (
         <p className="mb-4 text-sm text-slate-600">
-          Digite quantas caixas existem de verdade. Deixe em branco o que não contou. O sistema ajusta a diferença e guarda no histórico.
+          Digite quantas caixas tem disponíveis para venda, sem contar as que já estão em pedidos. Deixe em branco o que não contou. O sistema ajusta a diferença e guarda no histórico.
         </p>
       )}
 
@@ -75,13 +75,13 @@ export default function Grade({ produtos, modo }: { produtos: ProdutoGrade[]; mo
           <Cartao className="divide-y divide-slate-100 p-0">
             {lista.map((p) => {
               const valor = qtd[p.id] ?? "";
-              const dif = valor.trim() !== "" ? Number(valor) - p.fisico : 0;
+              const dif = valor.trim() !== "" ? Number(valor) - p.disponivel : 0;
               return (
                 <div key={p.id} className="flex items-center gap-3 px-4 py-2">
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{p.sabor}</div>
                     <div className="text-xs text-slate-500">
-                      tem {p.fisico}
+                      tem {p.disponivel}
                       {modo === "contagem" && valor.trim() !== "" && dif !== 0 && (
                         <span className={dif > 0 ? "text-green-700" : "text-red-700"}> · {dif > 0 ? "+" : ""}{dif}</span>
                       )}
